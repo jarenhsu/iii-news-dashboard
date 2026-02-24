@@ -4,38 +4,46 @@ import pandas as pd
 st.set_page_config(page_title="資策會新聞觀測站", layout="wide")
 st.title("🛡️ 資策會每周新聞觀測系統")
 
-# 你的試算表網址 (請確保已開啟「知道連結的人均可查看」)
+# --- 設定區 ---
+# 請在此貼上你的 Google Sheets 網址
 sheet_url = "https://docs.google.com/spreadsheets/d/1rKEVpW2Mx-ZOu6591hyvG_XuKUJnT1kTNuCASc7ewck/edit?usp=sharing"
 
-# 自動轉化為 CSV 下載連結的邏輯
 def get_csv_url(url):
     try:
-        base_url = url.split('/edit')[0]
-        return f"{base_url}/export?format=csv"
+        # 將 /edit 改為 /export?format=csv 以便程式讀取
+        if "/edit" in url:
+            return url.split("/edit")[0] + "/export?format=csv"
+        return url
     except:
         return None
 
 csv_url = get_csv_url(sheet_url)
 
+# --- 讀取與顯示 ---
 if csv_url:
     try:
-        # 讀取資料
+        # 讀取 CSV
         df = pd.read_csv(csv_url)
         
-        # 數據概況面板
-        st.metric("本週追蹤新聞總數", len(df))
-        
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            st.subheader("📌 各部門曝光佔比")
-            # 這裡對應你在 n8n 表單裡設定的欄位名稱 (例如：'部門' 或 'department')
-            target_col = '部門' if '部門' in df.columns else df.columns[-1]
-            st.pie_chart(df[target_col].value_counts())
+        if not df.empty:
+            # 數據儀表板
+            st.metric("本週追蹤新聞總數", len(df))
             
-        with col2:
-            st.subheader("📰 最新新聞清單")
-            st.dataframe(df, use_container_width=True)
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                st.subheader("📌 各部門曝光佔比")
+                # 自動抓取最後一欄（通常是 n8n 分類的部門）
+                target_col = df.columns[-1]
+                st.pie_chart(df[target_col].value_counts())
+                
+            with col2:
+                st.subheader("📰 最新新聞清單")
+                st.dataframe(df, use_container_width=True)
+        else:
+            st.info("試算表目前是空的，請確認 n8n 是否已成功寫入資料。")
             
     except Exception as e:
-        st.error(f"讀取資料時發生錯誤：{e}")
-        st.info("請檢查：1. Google Sheets 是否已開啟『知道連結的人均可查看』。 2. 試算表內是否已有 n8n 寫入的資料。")
+        st.error(f"連線失敗：{e}")
+        st.info("請檢查 Google Sheets 是否已開啟『知道連結的人均可查看』。")
+else:
+    st.warning("請在 app.py 中填入正確的 Google Sheets 網址。")

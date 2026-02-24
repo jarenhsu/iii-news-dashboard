@@ -43,4 +43,17 @@ try:
             st.image("https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&q=80", use_container_width=True)
             
             # 標題優先：新聞名稱
-            st.markdown(f"### {row[col
+            st.markdown(f"### {row[col_title]}") 
+            # 輔助資訊：部門標籤
+            st.warning(f"📌 **{row[col_dept]}**")
+            
+            st.link_button("👉 閱讀全文", row[col_link])
+
+    st.markdown("---")
+    
+    # 完整明細
+    with st.expander("🔍 點擊展開：查看所有 100 條新聞數據"):
+        st.dataframe(df, use_container_width=True)
+
+except Exception as e:
+    st.error(f"讀取失敗：{e}")

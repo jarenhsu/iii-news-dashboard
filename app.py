@@ -8,7 +8,7 @@ st.title("🛡️ 資策會每周新聞觀測系統")
 # --- 讀取資料 ---
 # 請將下方的網址替換成你 Google 表單連動的那張試算表的「共用網址」
 # 記得試算表要開啟「知道連結的人都能查看」
-sheet_url = "你的GoogleSheets網址"
+sheet_url = "https://docs.google.com/spreadsheets/d/1rKEVpW2Mx-ZOu6591hyvG_XuKUJnT1kTNuCASc7ewck/edit?usp=sharing"
 csv_url = sheet_url.replace("/edit?usp=sharing", "/export?format=csv")
 
 try:

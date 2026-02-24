@@ -1,48 +1,46 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="資策會新聞觀測站", layout="wide")
+# 1. 基礎網頁設定
+st.set_page_config(page_title="資策會新聞觀測戰術板", layout="wide")
 st.title("📊 資策會每周新聞露出戰情室")
 
-# 數據對接 (使用你提供的正確 ID)
+# 2. 數據對接
 SHEET_ID = "1rKEVpW2Mx-ZOu6591hyvG_XuKUJnT1kTNuCASc7ewck"
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
 try:
-    # 讀取 n8n 寫入的資料
-    df = pd.read_csv(csv_url).dropna(how='all')
+    # 讀取 n8n 解析出的資料
+    df = pd.read_csv(csv_url).dropna(subset=[pd.read_csv(csv_url).columns[1]])
     
-    # --- 自動辨識欄位名稱 ---
-    # 假設：第1欄是日期, 第2欄是標題, 第3欄是連結, 最後1欄是部門
-    col_date = df.columns[0]
-    col_title = df.columns[1]
-    col_link = df.columns[2]
-    col_dept = df.columns[-1]
+    # 自動辨識欄位
+    col_title = df.columns[1] # 新聞名稱
+    col_link = df.columns[2]  # 連結
+    col_dept = df.columns[-1] # 部門
 
-    # 1. 橫向長條圖
+    # --- 第一區：橫向長條圖 (顯示清楚數字) ---
     st.subheader("🏢 每周各部門新聞露出總數")
     dept_counts = df[col_dept].value_counts().sort_values(ascending=True)
+    
+    # 使用 st.bar_chart 顯示，並利用文字顯示數值
     st.bar_chart(dept_counts, horizontal=True, height=400)
+    # 小技巧：在圖表下方用數據清單顯示精確數字，更清楚
+    cols_stats = st.columns(len(dept_counts))
+    for i, (name, val) in enumerate(dept_counts.items()):
+        with cols_stats[i]:
+            st.metric(label=name, value=val)
 
     st.markdown("---")
 
-    # 2. Top 3 焦點新聞 (使用自動辨識的欄位)
-    st.subheader("🔥 本周最受關注新聞 (Top 3)")
+    # --- 第二區：焦點新聞卡片 (新聞名稱為主，日期移除) ---
+    st.subheader("🔥 本周焦點新聞回顧 (Top 3)")
     top_3 = df.head(3)
     
     cols = st.columns(3)
     for i, (index, row) in enumerate(top_3.iterrows()):
         with cols[i]:
+            # 科技風格配圖
             st.image("https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&q=80", use_container_width=True)
-            st.warning(f"**{row[col_dept]}**")
-            st.markdown(f"#### {row[col_title]}") # 這裡改用自動辨識的標題欄位
-            st.caption(f"📅 {row[col_date]}")
-            st.link_button("👉 閱讀新聞全文", row[col_link])
-
-    st.markdown("---")
-    
-    with st.expander("🔍 點擊展開：查看完整新聞清單明細"):
-        st.dataframe(df, use_container_width=True)
-
-except Exception as e:
-    st.error(f"儀表板讀取失敗：{e}")
+            
+            # 標題優先：新聞名稱
+            st.markdown(f"### {row[col

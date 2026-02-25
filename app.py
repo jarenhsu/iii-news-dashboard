@@ -25,13 +25,14 @@ st.markdown("""
 st.markdown("<h2 style='text-align: center; color: #4e342e;'>📡 資策會本週輿情熱度排行</h2>", unsafe_allow_html=True)
 
 # 2. 數據處理
+# 這裡使用你的 Google Sheets 導出連結
 SHEET_ID = "1rKEVpW2Mx-ZOu6591hyvG_XuKUJnT1kTNuCASc7ewck"
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
 try:
     raw_df = pd.read_csv(csv_url)
     
-    # 轉換日期 (假設第一欄為 Timestamp)
+    # 轉換日期 (假設第一欄為時間戳記)
     raw_df[raw_df.columns[0]] = pd.to_datetime(raw_df[raw_df.columns[0]])
     seven_days_ago = datetime.now() - timedelta(days=7)
     

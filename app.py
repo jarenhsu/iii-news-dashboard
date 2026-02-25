@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from urllib.parse import urlparse
 
-# 1. 頁面風格設定
+# 1. 頁面風格設定 (深色大賞風格)
 st.set_page_config(page_title="資策會新聞觀測站", layout="centered")
 
 st.markdown("""
@@ -42,38 +42,32 @@ def get_media_label(url):
 st.markdown("<div class='main-title'>📡 資策會輿情熱度觀測站</div>", unsafe_allow_html=True)
 st.markdown("<div class='sub-title'>WEEKLY TRENDING REPORT</div>", unsafe_allow_html=True)
 
-# 2. 數據處理 (你的最新試算表 ID)
+# 2. 數據處理
 SHEET_ID = "1cwFO20QP4EZrl5PYVOjVgevJS2D1VzCUazb9x0fHEoI"
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
 try:
-    # 💡 修正：使用具名的欄位標頭，並清理多餘換行
-    df = pd.read_csv(csv_url)
+    # 💡 關鍵修正：跳過損壞行並使用 Python 引擎
+    df = pd.read_csv(csv_url, on_bad_lines='skip', engine='python')
     
-    # 根據你的表單後台截圖，指定正確的欄位名稱
-    # 如果試算表第一列名稱有變動，請以此為準
-    col_name_title = "新聞標題"
-    col_name_link = "新聞連結"
-    
-    # 清洗資料
-    df[col_name_title] = df[col_name_title].fillna("未知標題").astype(str).str.replace(r'\n', '', regex=True).str.strip()
-    df[col_name_link] = df[col_name_link].fillna("").astype(str).str.strip()
+    # 💡 強制鎖定：不論名稱，直接讀取第 3 欄 (標題) 和第 4 欄 (連結)
+    df['title'] = df.iloc[:, 2].fillna("未知標題").astype(str).str.replace(r'\n', '', regex=True).str.strip()
+    df['link'] = df.iloc[:, 3].fillna("").astype(str).str.strip()
 
-    # 過濾掉欄位標頭本身
-    df = df[df[col_name_title] != "新聞標題"]
+    # 排除第一列是標題文字的情況
+    df = df[~df['title'].str.contains("新聞標題")]
 
     # 聚合資料
-    grouped = df.groupby(col_name_title)[col_name_link].apply(list).reset_index()
-    grouped['count'] = grouped[col_name_link].apply(len)
+    grouped = df.groupby('title')['link'].apply(list).reset_index()
+    grouped['count'] = grouped['link'].apply(len)
     grouped = grouped.sort_values(by='count', ascending=False).head(15)
 
-    # 3. 顯示卡片
     if grouped.empty:
-        st.info("目前試算表中沒有符合格式的資料。")
+        st.info("💡 試算表連線成功，但目前沒有有效的輿情資料。")
     else:
         for i, (_, row) in enumerate(grouped.iterrows()):
-            title = row[col_name_title]
-            links = row[col_name_link]
+            title = row['title']
+            links = row['link']
             count = row['count']
             
             medal = "🥇 CHAMPION" if i == 0 else "🥈 SILVER" if i == 1 else "🥉 BRONZE" if i == 2 else f"TOP {i+1}"
@@ -83,7 +77,7 @@ try:
                 <div class="news-card">
                     <div class="rank-text">{medal}</div>
                     <div class="news-title">{title}</div>
-                    <div style="color: #d4af37; font-weight: bold; margin-bottom: 10px;">🔥 本週熱度：{count} 次報導</div>
+                    <div style="color: #d4af37; font-weight: bold; margin-bottom: 10px;">🔥 熱度：{count} 次報導</div>
                     <div class="source-container">
                         <div style="color: #888; font-size: 0.8em; margin-bottom: 10px;">🔗 媒體來源：</div>
                         {links_html}
@@ -92,5 +86,4 @@ try:
                 """, unsafe_allow_html=True)
 
 except Exception as e:
-    # 如果報錯，至少顯示錯誤訊息讓我們除錯
-    st.error(f"系統資料解析異常。請確保試算表欄位名稱為『新聞標題』與『新聞連結』。")
+    st.error(f"⚠️ 資料解析中，請確保試算表已發佈。")

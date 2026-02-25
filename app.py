@@ -18,33 +18,35 @@ st.markdown("""
 
 st.markdown("<h2 style='text-align: center; color: #4e342e;'>📡 資策會輿情熱度觀測站</h2>", unsafe_allow_html=True)
 
-# 2. 數據處理 (指向你的新 ID)
+# 2. 數據處理
 SHEET_ID = "1cwFO20QP4EZrl5PYVOjVgevJS2D1VzCUazb9x0fHEoI"
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
 try:
-    # 讀取資料
     df = pd.read_csv(csv_url)
     
     if df.empty:
         st.warning("⚠️ 試算表中目前沒有資料，請執行 n8n 流程。")
     else:
-        # 直接根據位置抓取：第3欄(索引2)是標題，第4欄(索引3)是連結
-        # 這樣就不怕欄位名稱改掉
-        col_title = df.columns[2]
-        col_link = df.columns[3]
+        # 💡 自動偵測欄位邏輯
+        # 找包含 'http' 的是連結欄位，最長字串的通常是標題欄位
+        col_link = next((c for c in df.columns if df[c].astype(str).str.contains('http').any()), df.columns[-1])
+        col_title = next((c for c in df.columns if '標題' in c or 'Title' in c), None)
         
-        # 移除空值並統計標題出現次數
+        # 如果還是找不到標題欄位，就選除了連結以外，內容最長的那一欄
+        if not col_title:
+            col_title = df.drop(columns=[col_link]).apply(lambda x: x.astype(str).str.len().mean()).idxmax()
+
+        # 統計熱度
         hot_counts = df[col_title].value_counts().reset_index()
         hot_counts.columns = [col_title, 'count']
 
-        st.success(f"✅ 已成功讀取 {len(df)} 筆輿情資料")
+        st.success(f"✅ 已成功分析 {len(df)} 筆輿情資料")
 
         # 3. 顯示卡片清單
         for i, (_, row) in enumerate(hot_counts.head(15).iterrows()):
             title = row[col_title]
             count = row['count']
-            # 取得對應連結
             link = df[df[col_title] == title][col_link].values[0]
             
             medal = "🏆 " if i == 0 else "🥈 " if i == 1 else "🥉 " if i == 2 else f"NO.{i+1} "
@@ -58,4 +60,4 @@ try:
                 """, unsafe_allow_html=True)
 
 except Exception as e:
-    st.error(f"❌ 讀取發生錯誤。請確認試算表第一列標題是否正確。錯誤訊息: {e}")
+    st.error(f"❌ 讀取發生錯誤。請確認試算表格式。錯誤訊息: {e}")

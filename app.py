@@ -26,7 +26,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 媒體名稱轉換加強版
+# 媒體名稱轉換
 def get_media_label(url):
     if not isinstance(url, str) or "google" in url: return "媒體報導"
     mapping = {
@@ -42,52 +42,55 @@ def get_media_label(url):
 st.markdown("<div class='main-title'>📡 資策會輿情熱度觀測站</div>", unsafe_allow_html=True)
 st.markdown("<div class='sub-title'>WEEKLY TRENDING REPORT</div>", unsafe_allow_html=True)
 
-# 2. 數據處理
+# 2. 數據處理 (你的最新試算表 ID)
 SHEET_ID = "1cwFO20QP4EZrl5PYVOjVgevJS2D1VzCUazb9x0fHEoI"
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
 try:
-    # 💡 修正關鍵：強制跳過錯誤行，並指定欄位索引
-    df = pd.read_csv(csv_url, on_bad_lines='skip', engine='python')
+    # 💡 修正：使用具名的欄位標頭，並清理多餘換行
+    df = pd.read_csv(csv_url)
     
-    # 鎖定位置：第3欄(索引2)標題，第4欄(索引3)連結
-    # 清洗掉標題內的換行符號 \n 以防分組失敗
-    df['clean_title'] = df.iloc[:, 2].astype(str).str.replace(r'\n', '', regex=True).str.strip()
-    df['clean_link'] = df.iloc[:, 3].astype(str).str.strip()
+    # 根據你的表單後台截圖，指定正確的欄位名稱
+    # 如果試算表第一列名稱有變動，請以此為準
+    col_name_title = "新聞標題"
+    col_name_link = "新聞連結"
+    
+    # 清洗資料
+    df[col_name_title] = df[col_name_title].fillna("未知標題").astype(str).str.replace(r'\n', '', regex=True).str.strip()
+    df[col_name_link] = df[col_name_link].fillna("").astype(str).str.strip()
 
-    # 過濾掉「新聞標題」這種標頭文字或空標題
-    df = df[df['clean_title'] != '新聞標題']
-    df = df[df['clean_title'] != 'nan']
+    # 過濾掉欄位標頭本身
+    df = df[df[col_name_title] != "新聞標題"]
 
     # 聚合資料
-    grouped = df.groupby('clean_title')['clean_link'].apply(list).reset_index()
-    grouped['count'] = grouped['clean_link'].apply(len)
-    # 依熱度排序前 15 名
+    grouped = df.groupby(col_name_title)[col_name_link].apply(list).reset_index()
+    grouped['count'] = grouped[col_name_link].apply(len)
     grouped = grouped.sort_values(by='count', ascending=False).head(15)
 
-    for i, (_, row) in enumerate(grouped.iterrows()):
-        title = row['clean_title']
-        links = row['clean_link']
-        count = row['count']
-        
-        # 獎牌標籤
-        medal = "🥇 CHAMPION" if i == 0 else "🥈 SILVER" if i == 1 else "🥉 BRONZE" if i == 2 else f"TOP {i+1}"
-        
-        # 生成連結按鈕
-        links_html = "".join([f'<a class="source-btn" href="{u}" target="_blank">🌐 {get_media_label(u)}</a>' for u in links if u and 'http' in str(u)])
-        
-        # 顯示卡片
-        st.markdown(f"""
-            <div class="news-card">
-                <div class="rank-text">{medal}</div>
-                <div class="news-title">{title}</div>
-                <div style="color: #d4af37; font-weight: bold; margin-bottom: 10px;">🔥 熱度：{count} 次報導</div>
-                <div class="source-container">
-                    <div style="color: #888; font-size: 0.8em; margin-bottom: 10px;">🔗 媒體來源：</div>
-                    {links_html}
+    # 3. 顯示卡片
+    if grouped.empty:
+        st.info("目前試算表中沒有符合格式的資料。")
+    else:
+        for i, (_, row) in enumerate(grouped.iterrows()):
+            title = row[col_name_title]
+            links = row[col_name_link]
+            count = row['count']
+            
+            medal = "🥇 CHAMPION" if i == 0 else "🥈 SILVER" if i == 1 else "🥉 BRONZE" if i == 2 else f"TOP {i+1}"
+            links_html = "".join([f'<a class="source-btn" href="{u}" target="_blank">🌐 {get_media_label(u)}</a>' for u in links if u and 'http' in u])
+            
+            st.markdown(f"""
+                <div class="news-card">
+                    <div class="rank-text">{medal}</div>
+                    <div class="news-title">{title}</div>
+                    <div style="color: #d4af37; font-weight: bold; margin-bottom: 10px;">🔥 本週熱度：{count} 次報導</div>
+                    <div class="source-container">
+                        <div style="color: #888; font-size: 0.8em; margin-bottom: 10px;">🔗 媒體來源：</div>
+                        {links_html}
+                    </div>
                 </div>
-            </div>
-            """, unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
 
 except Exception as e:
-    st.error(f"資料校準中，請稍候。")
+    # 如果報錯，至少顯示錯誤訊息讓我們除錯
+    st.error(f"系統資料解析異常。請確保試算表欄位名稱為『新聞標題』與『新聞連結』。")

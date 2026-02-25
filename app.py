@@ -26,7 +26,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 媒體名稱轉換
+# 媒體名稱轉換加強版
 def get_media_label(url):
     if not isinstance(url, str) or "google" in url: return "媒體報導"
     mapping = {
@@ -47,28 +47,34 @@ SHEET_ID = "1cwFO20QP4EZrl5PYVOjVgevJS2D1VzCUazb9x0fHEoI"
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
 try:
-    # 強制使用 Python 引擎讀取，預防格式錯誤
+    # 💡 修正關鍵：強制跳過錯誤行，並指定欄位索引
     df = pd.read_csv(csv_url, on_bad_lines='skip', engine='python')
     
-    # 鎖定欄位：第3欄是標題，第4欄是連結
-    df['title'] = df.iloc[:, 2].fillna("未知標題").astype(str).str.strip()
-    df['link'] = df.iloc[:, 3].fillna("")
+    # 鎖定位置：第3欄(索引2)標題，第4欄(索引3)連結
+    # 清洗掉標題內的換行符號 \n 以防分組失敗
+    df['clean_title'] = df.iloc[:, 2].astype(str).str.replace(r'\n', '', regex=True).str.strip()
+    df['clean_link'] = df.iloc[:, 3].astype(str).str.strip()
+
+    # 過濾掉「新聞標題」這種標頭文字或空標題
+    df = df[df['clean_title'] != '新聞標題']
+    df = df[df['clean_title'] != 'nan']
 
     # 聚合資料
-    grouped = df.groupby('title')['link'].apply(list).reset_index()
-    grouped['count'] = grouped['link'].apply(len)
+    grouped = df.groupby('clean_title')['clean_link'].apply(list).reset_index()
+    grouped['count'] = grouped['clean_link'].apply(len)
+    # 依熱度排序前 15 名
     grouped = grouped.sort_values(by='count', ascending=False).head(15)
 
     for i, (_, row) in enumerate(grouped.iterrows()):
-        title = row['title']
-        links = row['link']
+        title = row['clean_title']
+        links = row['clean_link']
         count = row['count']
         
         # 獎牌標籤
         medal = "🥇 CHAMPION" if i == 0 else "🥈 SILVER" if i == 1 else "🥉 BRONZE" if i == 2 else f"TOP {i+1}"
         
         # 生成連結按鈕
-        links_html = "".join([f'<a class="source-btn" href="{u}" target="_blank">🌐 {get_media_label(u)}</a>' for u in links if u])
+        links_html = "".join([f'<a class="source-btn" href="{u}" target="_blank">🌐 {get_media_label(u)}</a>' for u in links if u and 'http' in str(u)])
         
         # 顯示卡片
         st.markdown(f"""
@@ -84,4 +90,4 @@ try:
             """, unsafe_allow_html=True)
 
 except Exception as e:
-    st.error(f"資料讀取失敗，請確認試算表格式是否變動。")
+    st.error(f"資料校準中，請稍候。")

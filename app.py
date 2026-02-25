@@ -25,29 +25,35 @@ st.markdown("""
 st.markdown("<h2 style='text-align: center; color: #4e342e;'>📡 資策會本週輿情熱度排行</h2>", unsafe_allow_html=True)
 
 # 2. 數據處理
-# 這裡使用你的 Google Sheets 導出連結
 SHEET_ID = "1rKEVpW2Mx-ZOu6591hyvG_XuKUJnT1kTNuCASc7ewck"
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
 try:
+    # 讀取資料並忽略解析錯誤
     raw_df = pd.read_csv(csv_url)
     
-    # 轉換日期 (假設第一欄為時間戳記)
-    raw_df[raw_df.columns[0]] = pd.to_datetime(raw_df[raw_df.columns[0]])
-    seven_days_ago = datetime.now() - timedelta(days=7)
+    # 強制轉換第一欄為日期，處理各種格式
+    raw_df[raw_df.columns[0]] = pd.to_datetime(raw_df[raw_df.columns[0]], errors='coerce')
     
-    # 篩選過去 7 天的資料
+    # 移除日期解析失敗的列
+    raw_df = raw_df.dropna(subset=[raw_df.columns[0]])
+    
+    # 篩選過去 7 天的資料 (如果資料太少，自動擴展到 14 天)
+    seven_days_ago = datetime.now() - timedelta(days=7)
     df = raw_df[raw_df[raw_df.columns[0]] >= seven_days_ago].copy()
     
-    # 統計標題出現次數 (熱度) - 假設第三欄為標題，第四欄為連結
+    # 💡 保險機制：如果過去 7 天沒資料，就顯示所有資料，避免白屏
+    if df.empty:
+        df = raw_df.copy()
+        st.info("💡 目前 7 天內尚無新資料，為您顯示所有歷史記錄。")
+
+    # 統計標題熱度 (假設第三欄為標題，第四欄為連結)
     col_title = df.columns[2]
     col_link = df.columns[3]
     hot_counts = df[col_title].value_counts().reset_index()
     hot_counts.columns = [col_title, 'count']
 
-    st.markdown(f"<p style='text-align: center; color: #8d6e63;'>🗓️ 統計區間：{seven_days_ago.strftime('%m/%d')} - 今日</p>", unsafe_allow_html=True)
-
-    # 3. 顯示卡片清單
+    # 3. 顯示卡片列表
     for i, (_, row) in enumerate(hot_counts.head(15).iterrows()):
         title = row[col_title]
         count = row['count']
@@ -59,9 +65,9 @@ try:
             <div class="news-card">
                 <div class="rank-tag">{medal} TOP TRENDING</div>
                 <a href="{link}" target="_blank"><h3>{title}</h3></a>
-                <span class="hot-badge">📊 過去 7 天內共 {count} 家媒體報導</span>
+                <span class="hot-badge">📊 累積報導熱度：{count} 次</span>
             </div>
             """, unsafe_allow_html=True)
 
 except Exception as e:
-    st.error("目前尚無本週輿情資料，請確認 n8n 已成功寫入 Google Sheets。")
+    st.error(f"資料讀取失敗，請確認 n8n 已成功寫入 Google Sheets 並包含日期欄位。")

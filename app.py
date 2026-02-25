@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 
-# 1. 頁面風格設定
+# 1. 頁面風格設定 (模仿卡片式質感佈局)
 st.set_page_config(page_title="資策會新聞觀測站", layout="centered")
 
 st.markdown("""
@@ -24,19 +24,21 @@ st.markdown("""
 
 st.markdown("<h2 style='text-align: center; color: #4e342e;'>📡 資策會本週輿情熱度排行</h2>", unsafe_allow_html=True)
 
-# 2. 數據處理
+# 2. 數據處理與時間過濾
 SHEET_ID = "1rKEVpW2Mx-ZOu6591hyvG_XuKUJnT1kTNuCASc7ewck"
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
 try:
     raw_df = pd.read_csv(csv_url)
     
-    # 時間過濾：只取過去 7 天 (假設第一欄為時間戳記)
+    # 轉換日期 (假設第一欄為 Timestamp)
     raw_df[raw_df.columns[0]] = pd.to_datetime(raw_df[raw_df.columns[0]])
     seven_days_ago = datetime.now() - timedelta(days=7)
+    
+    # 篩選過去 7 天的資料
     df = raw_df[raw_df[raw_df.columns[0]] >= seven_days_ago].copy()
     
-    # 統計標題熱度 (假設第三欄為標題)
+    # 統計標題出現次數 (熱度) - 假設第三欄為標題
     col_title = df.columns[2]
     col_link = df.columns[3]
     hot_counts = df[col_title].value_counts().reset_index()
@@ -44,10 +46,11 @@ try:
 
     st.markdown(f"<p style='text-align: center; color: #8d6e63;'>🗓️ 統計區間：{seven_days_ago.strftime('%m/%d')} - 今日</p>", unsafe_allow_html=True)
 
-    # 3. 顯示卡片清單
+    # 3. 顯示卡片列表
     for i, (_, row) in enumerate(hot_counts.head(15).iterrows()):
         title = row[col_title]
         count = row['count']
+        # 取得該標題對應的第一個連結
         link = df[df[col_title] == title][col_link].values[0]
         
         medal = "🏆 " if i == 0 else "🥈 " if i == 1 else "🥉 " if i == 2 else f"NO.{i+1} "

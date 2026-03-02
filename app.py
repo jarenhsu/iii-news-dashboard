@@ -20,64 +20,58 @@ st.markdown("""
 
 st.markdown("<div style='text-align:center; padding:20px;'><h1 style='color:#263238;'>📡 資策會輿情熱度觀測站</h1></div>", unsafe_allow_html=True)
 
-# 2. 數據獲取
 SHEET_ID = "1cwFO20QP4EZrl5PYVOjVgevJS2D1VzCUazb9x0fHEoI"
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
 try:
-    # 讀取資料並跳過雜訊
-    df = pd.read_csv(csv_url, on_bad_lines='skip', engine='python')
-    
-    # 💡 強制過濾掉包含「未提供」、「標題」或空值的無效列
-    df = df.dropna(how='all')
+    # 讀取資料
+    df = pd.read_csv(csv_url, on_bad_lines='skip', engine='python').fillna("媒體報導")
 
-    # 智慧識別欄位 (透過內容特徵)
-    # 連結：找 http
+    # 🧠 內容特徵過濾邏輯
+    # 1. 找連結欄 (含 http)
     col_link = next((c for c in df.columns if df[c].astype(str).str.contains('http').any()), None)
-    # 日期：找 YYYY-MM-DD
-    col_date = next((c for c in df.columns if df[c].astype(str).str.match(r'\d{4}-\d{2}-\d{2}').any()), None)
     
-    # 排除日期與連結後的欄位
-    other_cols = [c for c in df.columns if c not in [col_link, col_date]]
-    # 標題：內容最長的一欄
-    col_title = df[other_cols].apply(lambda x: x.astype(str).str.len().mean()).idxmax()
-    # 媒體：剩餘欄位中較短的那一欄
-    remaining = [c for c in other_cols if c != col_title]
-    col_media = remaining[0] if remaining else None
+    # 2. 找日期欄 (排除 Timestamp，找格式為 YYYY-MM-DD 的那一欄)
+    # 我們排除掉包含「下午」或「上午」字眼的欄位，那是 Timestamp
+    possible_date_cols = [c for c in df.columns if not df[c].astype(str).str.contains('午').any()]
+    col_date = next((c for c in possible_date_cols if df[c].astype(str).str.match(r'\d{4}').any()), None)
 
-    # 清洗與對位
-    df['c_title'] = df[col_title].astype(str).str.strip()
-    df['c_link'] = df[col_link].astype(str).str.strip() if col_link else ""
-    df['c_date'] = df[col_date].astype(str).str.strip() if col_date else "近期"
-    df['c_media'] = df[col_media].astype(str).str.strip() if col_media else "媒體報導"
+    # 3. 找媒體名稱欄 (排除連結、日期、Timestamp 後，字數最短的那一欄)
+    remaining_cols = [c for c in df.columns if c != col_link and c != col_date and not df[c].astype(str).str.contains('午').any()]
+    # 過濾掉「新聞標題」這種長標題
+    potential_media = [c for c in remaining_cols if df[c].astype(str).str.len().mean() < 15]
+    col_media = potential_media[0] if potential_media else None
 
-    # 二次過濾：確保標題不是「未提供」
-    df = df[~df['c_title'].str.contains("未提供|未知|新聞標題|Timestamp")]
-    df = df[df['c_title'].str.len() > 5]
+    # 4. 找標題欄 (剩餘中最長的那一欄)
+    col_title = next((c for c in remaining_cols if c != col_media), df.columns[2])
 
-    # 聚合與排序
-    grouped = df.groupby('c_title').agg({'c_link': list, 'c_media': list, 'c_date': 'max'}).reset_index()
-    grouped['count'] = grouped['c_link'].apply(len)
+    # 數據清洗
+    df['title'] = df[col_title].astype(str).str.strip()
+    df['link'] = df[col_link].astype(str).str.strip()
+    df['media'] = df[col_media].astype(str).str.strip() if col_media else "媒體報導"
+    df['date'] = df[col_date].astype(str).str.strip() if col_date else "近期"
+
+    # 排除雜訊
+    df = df[df['title'].str.len() > 5]
+    df = df[~df['title'].str.contains("標題|Timestamp")]
+
+    # 聚合
+    grouped = df.groupby('title').agg({'link': list, 'media': list, 'date': 'max'}).reset_index()
+    grouped['count'] = grouped['link'].apply(len)
     grouped = grouped.sort_values(by='count', ascending=False).head(15)
 
-    if grouped.empty:
-        st.warning("⚠️ 資料解析中，請手動執行 n8n 寫入正確的新聞標題。")
-    else:
-        for i, (_, row) in enumerate(grouped.iterrows()):
-            st.markdown(f"""
-                <div class="news-card">
-                    <div class="rank-text">RANK #{i+1}</div>
-                    <div class="topic-title">{row['c_title']}</div>
-                    <div class="info-bar">
-                        <span>📅 日期：{row['c_date']}</span>
-                        <span>🔥 熱度：{row['count']} 次露出</span>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with st.expander(f"📂 查看詳細媒體來源清單"):
-                for m, l in zip(row['c_media'], row['c_link']):
-                    st.write(f"**[{m}]** ➔ [閱讀原文]({l})")
+    for i, (_, row) in enumerate(grouped.iterrows()):
+        st.markdown(f"""<div class="news-card">
+            <div class="rank-text">RANK #{i+1}</div>
+            <div class="topic-title">{row['title']}</div>
+            <div class="info-bar">📅 最新日期：{row['date']} ｜ 🔥 熱度：{row['count']} 次露出</div>
+        </div>""", unsafe_allow_html=True)
+        
+        with st.expander(f"📂 查看詳細媒體來源清單"):
+            for m, l in zip(row['media'], row['link']):
+                # 💡 如果 m 還是抓到時間，這裡會強制顯示為「媒體報導」
+                display_media = "媒體報導" if "午" in str(m) or "/" in str(m) else m
+                st.write(f"**[{display_media}]** ➔ [閱讀原文]({l})")
 
 except Exception as e:
-    st.error("系統正在重新校準資料欄位，請稍候。")
+    st.error("資料校準中...")

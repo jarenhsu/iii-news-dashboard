@@ -1,76 +1,117 @@
 import streamlit as st
 import pandas as pd
 
-# 1. 頁面風格設定 (淺色溫和版)
+# 1. 頁面風格設定 (仿圭話行銷深色質感)
 st.set_page_config(page_title="資策會新聞觀測站", layout="centered")
 
 st.markdown("""
     <style>
-    .stApp { background-color: #fcfcf9; color: #37474f; }
+    /* 整體背景改為深黑色 */
+    .stApp {
+        background-color: #121212;
+        color: #e0e0e0;
+    }
+    /* 卡片樣式：深灰底、細邊框、懸浮發光效果 */
     .news-card {
-        background-color: #ffffff; padding: 28px; border-radius: 12px;
-        border: 1px solid #f0f0ed; margin-bottom: 22px; 
-        box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+        background-color: #1e1e1e; 
+        padding: 25px; 
+        border-radius: 12px;
+        border: 1px solid #333333; 
+        margin-bottom: 20px; 
+        transition: all 0.3s ease;
     }
-    .main-title { text-align: center; color: #263238; font-weight: 800; font-size: 2.2em; margin-top: 20px; }
-    .sub-title { text-align: center; color: #90a4ae; font-size: 0.95em; margin-bottom: 40px; }
-    .rank-text { color: #af946d; font-weight: 900; font-size: 1.6em; margin-bottom: 10px; }
-    .news-title { font-size: 1.4em; font-weight: 700; color: #2c3e50; margin: 10px 0; line-height: 1.5; }
-    .source-container { margin-top: 20px; padding-top: 15px; border-top: 1px solid #f1f1f1; }
-    .source-btn {
-        display: inline-block; background-color: #f4f6f7; color: #566573 !important;
-        padding: 7px 16px; border-radius: 6px; font-size: 0.85em;
-        margin: 5px; border: 1px solid #d5dbdb; text-decoration: none; 
+    .news-card:hover {
+        transform: translateY(-5px);
+        border-color: #d4af37; /* 懸浮時邊框變金黃色 */
+        box-shadow: 0 10px 20px rgba(212, 175, 55, 0.1);
     }
-    .info-label { color: #95a5a6; font-size: 0.85em; font-weight: 600; margin-right: 15px; }
+    /* 標題顏色：純白 */
+    .main-title {
+        text-align: center; 
+        color: #ffffff; 
+        font-weight: 800;
+        margin-bottom: 10px;
+        letter-spacing: 2px;
+    }
+    .sub-title {
+        text-align: center;
+        color: #888888;
+        font-size: 0.9em;
+        margin-bottom: 40px;
+    }
+    .rank-tag { 
+        color: #d4af37; /* 金黃色標籤 */
+        font-weight: bold; 
+        font-size: 0.85em; 
+        letter-spacing: 1px;
+        margin-bottom: 10px; 
+    }
+    .hot-badge { 
+        background-color: #2c2c2c; 
+        color: #ffd700; 
+        padding: 5px 15px; 
+        border-radius: 5px; 
+        font-size: 0.85em; 
+        font-weight: 600;
+        border: 1px solid #444;
+    }
+    /* 新聞連結顏色：亮白，滑過變金黃 */
+    a { 
+        text-decoration: none !important; 
+        color: #ffffff !important; 
+    }
+    a:hover { 
+        color: #d4af37 !important; 
+    }
+    h3 {
+        margin-top: 5px !important;
+        line-height: 1.5;
+        font-size: 1.2em;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-st.markdown("<div class='main-title'>📡 資策會輿情熱度觀測站</div>", unsafe_allow_html=True)
-st.markdown("<div class='sub-title'>WEEKLY TRENDING REPORT</div>", unsafe_allow_html=True)
+st.markdown("<h1 class='main-title'>📡 資策會輿情熱度觀測站</h1>", unsafe_allow_html=True)
+st.markdown("<p class='sub-title'>2026 年度輿情自動化分析儀表板</p>", unsafe_allow_html=True)
 
+# 2. 數據處理 (維持自動感應邏輯)
 SHEET_ID = "1cwFO20QP4EZrl5PYVOjVgevJS2D1VzCUazb9x0fHEoI"
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
 try:
-    df = pd.read_csv(csv_url, on_bad_lines='skip', engine='python')
+    df = pd.read_csv(csv_url)
     
-    # 鎖定欄位：第2欄(索引1)是日期，第3欄(索引2)是標題，第4欄(索引3)是連結
-    df['date'] = df.iloc[:, 1].fillna("近期").astype(str).str.strip()
-    df['title'] = df.iloc[:, 2].fillna("未知標題").astype(str).str.replace(r'\n', '', regex=True).str.strip()
-    df['link'] = df.iloc[:, 3].fillna("").astype(str).str.strip()
+    if df.empty:
+        st.warning("⚠️ 試算表中目前沒有資料，請執行 n8n 流程。")
+    else:
+        # 自動偵測連結與標題欄位
+        col_link = next((c for c in df.columns if df[c].astype(str).str.contains('http').any()), df.columns[-1])
+        col_title = next((c for c in df.columns if '標題' in c or 'Title' in c), None)
+        if not col_title:
+            col_title = df.drop(columns=[col_link]).apply(lambda x: x.astype(str).str.len().mean()).idxmax()
 
-    df = df[df['title'].str.len() > 2] 
-    df = df[~df['title'].str.contains("新聞標題")]
+        # 統計熱度
+        hot_counts = df[col_title].value_counts().reset_index()
+        hot_counts.columns = [col_title, 'count']
 
-    # 聚合：同時保留最新的日期與所有連結
-    grouped = df.groupby('title').agg({'link': list, 'date': 'max'}).reset_index()
-    grouped['count'] = grouped['link'].apply(len)
-    grouped = grouped.sort_values(by='count', ascending=False).head(15)
-
-    for i, (_, row) in enumerate(grouped.iterrows()):
-        title = row['title']
-        links = row['link']
-        count = row['count']
-        latest_date = row['date']
-        
-        medal = "🥇 CHAMPION" if i == 0 else "🥈 SILVER" if i == 1 else "🥉 BRONZE" if i == 2 else f"TOP {i+1}"
-        links_html = "".join([f'<a class="source-btn" href="{u}" target="_blank">來源 {idx+1}</a>' for idx, u in enumerate(links) if 'http' in str(u)])
-        
-        st.markdown(f"""
-            <div class="news-card">
-                <div class="rank-text">{medal}</div>
-                <div class="news-title">{title}</div>
-                <div style="margin-bottom: 15px;">
-                    <span class="info-label">📅 最新日期：{latest_date}</span>
-                    <span class="info-label">📈 本週熱度：{count} 次報導</span>
+        # 3. 顯示卡片清單
+        for i, (_, row) in enumerate(hot_counts.head(15).iterrows()):
+            title = row[col_title]
+            count = row['count']
+            link = df[df[col_title] == title][col_link].values[0]
+            
+            # 獎牌圖示與標籤
+            medal = "🏆 FIRST" if i == 0 else "🥈 SECOND" if i == 1 else "🥉 THIRD" if i == 2 else f"TOP {i+1}"
+            
+            st.markdown(f"""
+                <div class="news-card">
+                    <div class="rank-tag">{medal} — TRENDING NOW</div>
+                    <a href="{link}" target="_blank"><h3>{title}</h3></a>
+                    <div style="margin-top: 15px;">
+                        <span class="hot-badge">🔥 報導熱度：{count} 次</span>
+                    </div>
                 </div>
-                <div class="source-container">
-                    <div style="color: #bdc3c7; font-size: 0.8em; margin-bottom: 10px;">🔗 相關報導連結：</div>
-                    {links_html}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
 
 except Exception as e:
-    st.error(f"系統資料校準中。")
+    st.error(f"❌ 讀取發生錯誤。錯誤訊息: {e}")

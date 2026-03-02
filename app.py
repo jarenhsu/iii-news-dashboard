@@ -20,33 +20,31 @@ st.markdown("""
 
 st.markdown("<div style='text-align:center; padding:20px;'><h1 style='color:#263238;'>📡 資策會輿情熱度觀測站</h1></div>", unsafe_allow_html=True)
 
+# 2. 數據獲取
 SHEET_ID = "1cwFO20QP4EZrl5PYVOjVgevJS2D1VzCUazb9x0fHEoI"
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
 try:
-    # 讀取並跳過可能有問題的行
+    # 讀取 CSV 資料
     df = pd.read_csv(csv_url, on_bad_lines='skip', engine='python').fillna("未提供")
 
-    # 💡 關鍵修正：強制指定欄位索引，避免所有標題都變成一樣的
-    # 假設順序：[0]時間戳記, [1]日期, [2]標題, [3]連結, [4]媒體
-    if df.shape[1] >= 5:
+    # 💡 關鍵修正：直接依照你試算表的欄位位置抓取
+    # 假設：B欄是日期(1), C欄是標題(2), D欄是連結(3), E欄是媒體(4)
+    if df.shape[1] >= 4:
         df['c_date'] = df.iloc[:, 1].astype(str).str.strip()
         df['c_title'] = df.iloc[:, 2].astype(str).str.replace(r'\n', '', regex=True).str.strip()
         df['c_link'] = df.iloc[:, 3].astype(str).str.strip()
-        df['c_media'] = df.iloc[:, 4].astype(str).str.strip()
+        # 如果有第五欄就抓媒體，沒有就補「媒體報導」
+        df['c_media'] = df.iloc[:, 4].astype(str).str.strip() if df.shape[1] >= 5 else "媒體報導"
     else:
-        # 如果欄位不足，嘗試自動偵測
-        df['c_title'] = df.iloc[:, 1].astype(str) # 預防性指定
-        df['c_link'] = df.iloc[:, -1].astype(str)
-        df['c_date'] = "近期"
-        df['c_media'] = "媒體報導"
+        st.error("試算表欄位不足，請確認 n8n 是否成功寫入日期、標題與連結。")
+        st.stop()
 
-    # 排除無效資料（例如標頭或太短的字）
-    df = df[df['c_title'].str.len() > 5]
-    df = df[~df['c_title'].str.contains("標題|Timestamp")]
+    # 💡 這次放寬過濾：只要標題長度大於 2 就顯示
+    df = df[df['c_title'].str.len() > 2]
+    df = df[~df['c_title'].str.contains("新聞標題|Timestamp|標題")]
 
     # 聚合：依照「標題」分組
-    # 如果這裡「每個新聞都一樣」，代表 df['c_title'] 的內容在試算表裡真的都一樣
     grouped = df.groupby('c_title').agg({
         'c_link': list, 
         'c_media': list, 
@@ -54,10 +52,10 @@ try:
     }).reset_index()
     
     grouped['count'] = grouped['c_link'].apply(len)
-    grouped = grouped.sort_values(by='count', ascending=False).head(15)
+    grouped = grouped.sort_values(by='count', ascending=False).head(20)
 
     if grouped.empty:
-        st.warning("目前沒有符合條件的新聞資料，請檢查試算表內容。")
+        st.warning("⚠️ 目前讀取到的標題過短或格式不符，請檢查試算表 C 欄內容。")
     else:
         for i, (_, row) in enumerate(grouped.iterrows()):
             st.markdown(f"""
@@ -71,10 +69,10 @@ try:
                 </div>
                 """, unsafe_allow_html=True)
             
-            with st.expander(f"📂 查看 {row['count']} 家媒體來源詳情"):
-                # 這裡使用 zip 同時取出媒體與連結
+            with st.expander(f"📂 查看媒體來源詳情"):
+                # 配對顯示
                 for m, l in zip(row['c_media'], row['c_link']):
                     st.write(f"**[{m}]** ➔ [點此閱讀原文]({l})")
 
 except Exception as e:
-    st.error(f"資料對位異常：{e}")
+    st.error(f"系統偵測到錯誤：{e}")

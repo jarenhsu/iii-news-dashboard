@@ -24,30 +24,35 @@ SHEET_ID = "1cwFO20QP4EZrl5PYVOjVgevJS2D1VzCUazb9x0fHEoI"
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
 try:
-    # 讀取資料
     df = pd.read_csv(csv_url, on_bad_lines='skip', engine='python').fillna("媒體報導")
 
-    # 🧠 內容特徵過濾邏輯
-    # 1. 找連結欄 (含 http)
+    # 🧠 強化型欄位特徵辨識
+    # 1. 找連結：含 http
     col_link = next((c for c in df.columns if df[c].astype(str).str.contains('http').any()), None)
     
-    # 2. 找日期欄 (排除 Timestamp，找格式為 YYYY-MM-DD 的那一欄)
-    # 我們排除掉包含「下午」或「上午」字眼的欄位，那是 Timestamp
-    possible_date_cols = [c for c in df.columns if not df[c].astype(str).str.contains('午').any()]
-    col_date = next((c for c in possible_date_cols if df[c].astype(str).str.match(r'\d{4}').any()), None)
+    # 2. 找日期：格式為 YYYY-MM-DD (例如 2026-03-02)
+    col_date = next((c for c in df.columns if df[c].astype(str).str.match(r'\d{4}-\d{2}-\d{2}').any()), None)
+    
+    # 3. 找媒體名稱：排除連結、日期，且「不含」時間特徵 (/, :, 上午, 下午)
+    def is_timestamp(val):
+        s = str(val)
+        return any(x in s for x in ['/', ':', '上午', '下午'])
 
-    # 3. 找媒體名稱欄 (排除連結、日期、Timestamp 後，字數最短的那一欄)
-    remaining_cols = [c for c in df.columns if c != col_link and c != col_date and not df[c].astype(str).str.contains('午').any()]
-    # 過濾掉「新聞標題」這種長標題
-    potential_media = [c for c in remaining_cols if df[c].astype(str).str.len().mean() < 15]
-    col_media = potential_media[0] if potential_media else None
-
-    # 4. 找標題欄 (剩餘中最長的那一欄)
-    col_title = next((c for c in remaining_cols if c != col_media), df.columns[2])
+    other_cols = [c for c in df.columns if c != col_link and c != col_date]
+    # 在剩下的欄位中，找出一欄「平均字數最短」且「不是時間」的
+    potential_media_cols = [c for c in other_cols if not df[c].apply(is_timestamp).any()]
+    
+    if potential_media_cols:
+        col_media = df[potential_media_cols].apply(lambda x: x.astype(str).str.len().mean()).idxmin()
+        col_title = df[potential_media_cols].apply(lambda x: x.astype(str).str.len().mean()).idxmax()
+    else:
+        # 萬一真的找不到，就設為預設
+        col_media = None
+        col_title = next((c for c in other_cols), df.columns[2])
 
     # 數據清洗
     df['title'] = df[col_title].astype(str).str.strip()
-    df['link'] = df[col_link].astype(str).str.strip()
+    df['link'] = df[col_link].astype(str).str.strip() if col_link else ""
     df['media'] = df[col_media].astype(str).str.strip() if col_media else "媒體報導"
     df['date'] = df[col_date].astype(str).str.strip() if col_date else "近期"
 
@@ -61,17 +66,19 @@ try:
     grouped = grouped.sort_values(by='count', ascending=False).head(15)
 
     for i, (_, row) in enumerate(grouped.iterrows()):
-        st.markdown(f"""<div class="news-card">
-            <div class="rank-text">RANK #{i+1}</div>
-            <div class="topic-title">{row['title']}</div>
-            <div class="info-bar">📅 最新日期：{row['date']} ｜ 🔥 熱度：{row['count']} 次露出</div>
-        </div>""", unsafe_allow_html=True)
+        st.markdown(f"""
+            <div class="news-card">
+                <div class="rank-text">RANK #{i+1}</div>
+                <div class="topic-title">{row['title']}</div>
+                <div class="info-bar">📅 最新日期：{row['date']} ｜ 🔥 熱度：{row['count']} 次露出</div>
+            </div>
+            """, unsafe_allow_html=True)
         
         with st.expander(f"📂 查看詳細媒體來源清單"):
             for m, l in zip(row['media'], row['link']):
-                # 💡 如果 m 還是抓到時間，這裡會強制顯示為「媒體報導」
-                display_media = "媒體報導" if "午" in str(m) or "/" in str(m) else m
-                st.write(f"**[{display_media}]** ➔ [閱讀原文]({l})")
+                # 最終保險：如果內容還是長得像時間，就顯示媒體報導
+                display_m = "媒體報導" if is_timestamp(m) else m
+                st.write(f"**[{display_m}]** ➔ [閱讀原文]({l})")
 
 except Exception as e:
-    st.error("資料校準中...")
+    st.error(f"資料校準中...")

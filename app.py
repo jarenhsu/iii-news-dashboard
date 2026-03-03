@@ -3,37 +3,43 @@ import pandas as pd
 from urllib.parse import urlparse
 from datetime import datetime, timedelta
 
-# 1. 頁面風格與穩定版跑馬燈設定
+# 1. 頁面風格、亮橘發白光與穩定版跑馬燈設定
 st.set_page_config(page_title="資策會輿情熱度觀測站", layout="centered")
 st.markdown("""
     <style>
     /* 頁面深藍色背景 */
     .stApp { background-color: #001f3f; color: #ffffff; }
-    h1 { color: #ffffff !important; text-align: center; }
+    h1 { color: #ffffff !important; text-align: center; font-weight: 800; }
 
-    /* 💡 霓虹發光跑馬燈設定 */
+    /* 💡 亮橘發白光跑馬燈設定 */
     .marquee-container {
-        background: rgba(0, 0, 0, 0.4);
-        border-top: 2px solid #FF4500;
-        border-bottom: 2px solid #FF4500;
-        padding: 5px 0;
+        background: rgba(0, 0, 0, 0.5);
+        border-top: 2px solid #FFA500;
+        border-bottom: 2px solid #FFA500;
+        padding: 8px 0;
         margin-bottom: 25px;
+        box-shadow: inset 0 0 10px rgba(255, 165, 0, 0.3);
     }
     
     .neon-text {
-        color: #FF4500;
+        color: #FFA500; /* 亮橘色主體 */
         font-weight: bold;
-        font-size: 1.5em; /* 文字大小調小一號 */
-        text-shadow: 0 0 10px #FF4500, 0 0 20px #FF8C00; /* 霓虹發亮效果 */
+        font-size: 1.5em; /* 文字大小 */
+        /* 多層發光：第一層白色核心，第二三層橘色暈開 */
+        text-shadow: 
+            0 0 5px #FFFFFF, 
+            0 0 10px #FFFFFF, 
+            0 0 20px #FFA500, 
+            0 0 30px #FF8C00;
         font-family: 'Microsoft JhengHei', sans-serif;
     }
 
     /* 閃爍動畫 */
     .blink {
-        animation: blinker 1.5s linear infinite;
+        animation: blinker 2s linear infinite;
     }
     @keyframes blinker {
-        50% { opacity: 0.6; }
+        50% { opacity: 0.7; }
     }
 
     /* 新聞卡片效果 */
@@ -48,18 +54,17 @@ st.markdown("""
     }
     .rank-text { color: #FF8C00; font-weight: 900; font-size: 1.6em; }
     .topic-title { font-size: 1.35em; font-weight: 700; color: #001f3f; margin-top: 10px; }
-    .ai-box { background-color: #1a3a5a; padding: 20px; border-radius: 12px; border: 1px solid #FF8C00; margin-bottom: 30px; }
+    .ai-box { background-color: #1a3a5a; padding: 20px; border-radius: 12px; border: 1px solid #FFA500; margin-bottom: 30px; }
     </style>
     """, unsafe_allow_html=True)
 
 st.markdown("<h1>📡 資策會輿情熱度觀測站</h1>", unsafe_allow_html=True)
 
-# ✨ 穩定版：無縫重複、閃爍發光的跑馬燈
-# 使用 marquee 確保在 Streamlit 環境下也能穩定捲動
-marquee_content = "製作單位：企推處媒體行銷組　&nbsp;&nbsp;　" * 6
+# ✨ 亮橘發白光不間斷跑馬燈
+marquee_content = "製作單位：企推處媒體行銷組　&nbsp;&nbsp;　" * 8
 st.markdown(f"""
     <div class="marquee-container">
-        <marquee scrollamount="8" behavior="scroll" direction="left">
+        <marquee scrollamount="7" behavior="scroll" direction="left">
             <span class="neon-text blink">{marquee_content}</span>
         </marquee>
     </div>

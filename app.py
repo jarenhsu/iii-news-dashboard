@@ -1,36 +1,39 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="資策會新聞觀測站", layout="centered")
-
-SHEET_ID = "1cwFO20QP4EZrl5PYVOjVgevJS2D1VzCUazb9x0fHEoI"
-csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
+# ... (樣式設定維持不變)
 
 try:
-    df = pd.read_csv(csv_url, on_bad_lines='skip', engine='python').fillna("媒體報導")
+    df = pd.read_csv(csv_url, on_bad_lines='skip', engine='python').fillna("未提供")
+
+    # 1. 智慧對位：找到包含 http 的是連結，剩下的長字串是標題
+    col_link = next((c for c in df.columns if df[c].astype(str).str.contains('http').any()), None)
+    col_date = next((c for c in df.columns if df[c].astype(str).str.match(r'\d{4}').any()), None)
     
-    # 💡 除錯專用：在網頁最上方顯示抓到的欄位名稱 (看完可刪除)
-    # st.write("偵測到的欄位有：", list(df.columns))
+    # 排除日期、連結、Timestamp 後，字數最長的是標題
+    other_cols = [c for c in df.columns if c != col_link and c != col_date and not df[c].astype(str).str.contains('午').any()]
+    col_title = df[other_cols].apply(lambda x: x.astype(str).str.len().mean()).idxmax()
+    
+    # 媒體名稱則是剩下的那一欄
+    col_media = next((c for c in other_cols if c != col_title), None)
 
-    # 強制指定欄位：假設 A(時間), B(日期), C(標題), D(連結), E(媒體)
-    # 如果你的媒體在最後一欄，就用 -1
-    df['c_title'] = df.iloc[:, 2].astype(str).str.strip()
-    df['c_link'] = df.iloc[:, 3].astype(str).str.strip()
-    df['c_media'] = df.iloc[:, 4].astype(str).str.strip() if df.shape[1] >= 5 else "媒體報導"
-    df['c_date'] = df.iloc[:, 1].astype(str).str.strip()
+    df['c_title'] = df[col_title].astype(str).str.strip()
+    df['c_link'] = df[col_link].astype(str).str.strip()
+    df['c_media'] = df[col_media].astype(str).str.strip() if col_media else "媒體報導"
+    df['c_date'] = df[col_date].astype(str).str.strip() if col_date else "近期"
 
-    # 聚合與顯示邏輯 (與之前相同...)
-    # ...
-    grouped = df.groupby('c_title').agg({'c_link': list, 'c_media': list, 'c_date': 'max'}).reset_index()
+    # 💡 修正聚合邏輯：避免因為標題微小差異或完全相同導致只剩一筆
+    # 我們依照「連結」來確保每一則新聞都是獨特的
+    df = df.drop_duplicates(subset=['c_link']) 
+    
+    # 重新依照標題分組計算熱度
+    grouped = df.groupby('c_title').agg({
+        'c_link': list, 
+        'c_media': list, 
+        'c_date': 'max'
+    }).reset_index()
+    
     grouped['count'] = grouped['c_link'].apply(len)
-    grouped = grouped.sort_values(by='count', ascending=False).head(15)
+    grouped = grouped.sort_values(by='count', ascending=False).head(20)
 
-    for i, (_, row) in enumerate(grouped.iterrows()):
-        st.subheader(f"RANK #{i+1}: {row['c_title']}")
-        st.write(f"📅 日期：{row['c_date']} | 🔥 熱度：{row['count']}")
-        with st.expander("查看來源列表"):
-            for m, l in zip(row['c_media'], row['c_link']):
-                st.markdown(f"**[{m}]** ➔ [閱讀原文]({l})")
-
-except Exception as e:
-    st.error(f"錯誤原因：{e}")
+    # ... (顯示卡片邏輯)

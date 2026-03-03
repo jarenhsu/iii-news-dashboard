@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 st.set_page_config(page_title="資策會新聞熱度觀測站", layout="centered")
 st.markdown("""
     <style>
-    /* 🌌 深藍到深橘的對角漸層背景 */
+    /* 🌌 背景設定 */
     .stApp { 
         background: linear-gradient(135deg, #001226 0%, #001f3f 40%, #452000 100%);
         background-attachment: fixed;
@@ -20,7 +20,7 @@ st.markdown("""
         font-family: 'Consolas', 'Monaco', monospace; 
     }
 
-    /* 🎬 標題區：Cyberpunk 雙色錯位 (底色透明化以適應漸層) */
+    /* 🎬 標題區：Cyberpunk 雙色錯位 */
     .header-container { text-align: center; padding: 45px 0; position: relative; }
     .header-title { 
         position: relative; color: #ffffff !important; font-weight: 900; 
@@ -52,7 +52,7 @@ st.markdown("""
         100% { clip: rect(30px, 9999px, 35px, 0); }
     }
 
-    /* 💡 數據流跑馬燈 (玻璃感) */
+    /* 💡 數據流跑馬燈 */
     .marquee-container {
         background: rgba(0, 0, 0, 0.4);
         backdrop-filter: blur(8px);
@@ -104,13 +104,13 @@ st.markdown("""
 st.markdown("""
     <div class="header-container">
         <h1 class="header-title">資策會新聞熱度觀測站</h1>
-        <div style="color:rgba(0, 212, 255, 0.7); font-size:0.75em; letter-spacing:4px; margin-top:10px;">智能輿情分析系統 // 版本 5.1</div>
+        <div style="color:rgba(0, 212, 255, 0.7); font-size:0.75em; letter-spacing:4px; margin-top:10px;">智能輿情分析系統 // 版本 5.2</div>
     </div>
     """, unsafe_allow_html=True)
 
 # 跑馬燈
 marquee_content = "數據流傳輸中... [穩定] // 企推處媒體行銷組 // 系統監測中... " * 5
-st.markdown(f'<div class="marquee-container"><marquee scrollamount="7"><span class="digital-text">{marquee_content}</span></marquee></div>', unsafe_allow_html=True)
+st.markdown(f'<div class="marquee-container"><marquee scrollamount="6"><span class="digital-text">{marquee_content}</span></marquee></div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------
 # 📊 資料流處理
@@ -128,7 +128,7 @@ try:
     df_7d = df[df['dt'] >= (today - timedelta(days=7))].copy()
     
     # ---------------------------------------------------------
-    # 🔥 數據統計與 AI 中文點評 (僅針對 TOP 1)
+    # 🔥 數據統計與 AI 點評 (移除次數，僅留內容)
     # ---------------------------------------------------------
     df_7d['clean_m'] = df_7d.apply(lambda x: urlparse(str(x.iloc[3])).netloc.replace("www.","").split('.')[0].upper(), axis=1)
     grouped = df_7d.groupby(df_7d.iloc[:, 1]).agg({df_7d.columns[3]: list, 'clean_m': list, df_7d.columns[2]: 'max'}).reset_index()
@@ -137,24 +137,23 @@ try:
 
     if not ranked_df.empty:
         top_1_title = ranked_df.iloc[0, 0]
-        top_1_count = ranked_df.iloc[0]['count']
         
         st.markdown(f"""
             <div class="ai-monitor-wrapper">
                 <div class="ai-monitor-box">
                     <div style="color:#00d4ff; font-size:0.85em; margin-bottom:10px;">> AI 深度數據分析啟動...</div>
                     <div style="color:#ffffff; line-height:1.6;">
-                        本週最受關注新聞為：<strong>「{top_1_title}」</strong>。<br>
-                        分析報告：該項議題在過去 7 天內共累積了 <strong>{top_1_count}</strong> 次媒體報導，顯示資策會在該領域的動態已成為近期媒體聚焦核心，品牌聲量表現極佳。
+                        本週核心熱點新聞為：<strong>「{top_1_title}」</strong>。<br>
+                        分析摘要：本期監測顯示該議題在各類媒體端展現極高擴散動能，相關討論與資策會核心發展目標具備高度連結，為本週輿情關注之最。
                     </div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
     # ---------------------------------------------------------
-    # 🔥 排行榜渲染
+    # 🔥 排行榜渲染 (移除報導頻次顯示)
     # ---------------------------------------------------------
-    st.markdown("<div style='color:#00d4ff; margin-bottom:15px; font-weight:bold; letter-spacing:1px;'>[ 即時熱度數據流 ]</div>", unsafe_allow_html=True)
+    st.markdown("<div style='color:#00d4ff; margin-bottom:15px; font-weight:bold; letter-spacing:1px;'>[ 即時趨勢數據流 ]</div>", unsafe_allow_html=True)
     
     for i, (_, row) in enumerate(ranked_df.head(15).iterrows()):
         st.markdown(f"""
@@ -162,7 +161,7 @@ try:
                 <span class="top-rank">TOP {i+1}</span>
                 <div class="topic-title">{row.iloc[0]}</div>
                 <div style="font-size:0.85em; color:#555; font-weight:bold;">
-                    🔥 報導露出次數: {row['count']} ｜ 📅 最後同步時間: {row.iloc[3]}
+                    📅 系統同步時間: {row.iloc[3]}
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -170,4 +169,4 @@ try:
             for l, m in set(zip(row.iloc[1], row['clean_m'])):
                 st.write(f"**[{m}]** ➔ [點擊閱讀原文]({l})")
 except Exception:
-    st.error("📡 資料同步中，請稍候...")
+    st.error("📡 資料同步中...")

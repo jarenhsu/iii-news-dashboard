@@ -3,7 +3,7 @@ import pandas as pd
 from urllib.parse import urlparse
 from datetime import datetime, timedelta
 
-# 1. 頁面風格：精簡版 AI 點評日誌與邊框整合
+# 1. 頁面風格：徹底解決邊框與文字分離問題
 st.set_page_config(page_title="資策會新聞熱度觀測站", layout="centered")
 st.markdown("""
     <style>
@@ -11,22 +11,16 @@ st.markdown("""
     .stApp { 
         background: linear-gradient(135deg, #001226 0%, #001f3f 40%, #452000 100%);
         background-attachment: fixed;
-        background-image: 
-            linear-gradient(135deg, #001226 0%, #001f3f 40%, #452000 100%),
-            linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), 
-            linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-        background-size: 100% 100%, 35px 35px;
         color: #ffffff; 
         font-family: 'Consolas', 'Monaco', monospace; 
     }
 
-    /* 🎬 標題區 */
+    /* 🎬 標題區：Cyberpunk 雙色錯位 */
     .header-container { text-align: center; padding: 45px 0; }
     .header-title { 
         position: relative; color: #ffffff !important; font-weight: 900; 
         letter-spacing: 12px; font-size: 2.8em; text-transform: uppercase;
         display: inline-block;
-        filter: drop-shadow(0 0 10px #00d4ff);
     }
     .header-title::before, .header-title::after {
         content: "資策會新聞熱度觀測站";
@@ -44,48 +38,46 @@ st.markdown("""
         padding: 10px 0; margin-bottom: 30px;
     }
 
-    /* 🚀 整合式雷達邊框與精簡日誌內容 */
+    /* 🚀 核心修正：確保文字絕對在框內 */
     .ai-monitor-wrapper {
         position: relative;
         width: 100%;
+        min-height: 250px; /* 預設最小高度 */
         margin-bottom: 40px;
-        padding: 4px;
-        background: rgba(10, 25, 47, 0.6);
         border-radius: 15px;
-        overflow: hidden;
-        z-index: 1;
+        overflow: hidden; /* 切割外溢光芒 */
         display: flex;
         justify-content: center;
         align-items: center;
+        padding: 4px; /* 旋轉邊框顯露的寬度 */
     }
+
+    /* 旋轉霓虹背景層 */
     .ai-monitor-wrapper::before {
         content: "";
-        position: absolute; width: 200%; height: 200%;
+        position: absolute;
+        width: 250%; height: 250%;
         background: conic-gradient(#00d4ff, #FFA500, #ff00ff, #00d4ff);
         animation: rotate-border 6s linear infinite;
-        z-index: -1;
+        z-index: 0;
     }
     @keyframes rotate-border { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
+    /* 內部內容盒：完全覆蓋中心並鎖定文字 */
     .ai-monitor-box {
         position: relative;
         width: 100%;
-        background: #001226;
+        height: 100%;
+        background: #001226; /* 完全不透明背景，擋住光芒中心 */
         padding: 25px;
         border-radius: 12px;
-        z-index: 2;
+        z-index: 10; /* 確保在光芒上方 */
         box-shadow: inset 0 0 20px rgba(0, 212, 255, 0.2);
     }
 
-    /* 日誌風緊湊排版 */
-    .log-stream {
-        font-size: 0.85em;
-        line-height: 1.8;
-        color: #00d4ff;
-        text-align: justify;
-    }
+    .log-stream { font-size: 0.85em; line-height: 1.8; color: #00d4ff; text-align: justify; }
     .log-id { color: #FF8C00; font-weight: bold; margin-right: 4px; }
-    .log-tag { color: #ffffff; background: rgba(255, 140, 0, 0.2); padding: 0 4px; border-radius: 2px; }
+    .log-tag { color: #ffffff; background: rgba(255, 140, 0, 0.3); padding: 0 4px; border-radius: 2px; }
 
     /* 🏆 金色發光新聞卡片 */
     .news-card {
@@ -121,23 +113,22 @@ try:
     grouped['count'] = grouped.iloc[:, 1].apply(len)
     ranked_df = grouped.sort_values(by='count', ascending=False).head(15)
 
-    # 🤖 AI 監測：精簡數據日誌流排版
+    # 🤖 修正版 AI 監測：文字必須在框內
     if not ranked_df.empty:
-        st.markdown('<div class="ai-monitor-wrapper"><div class="ai-monitor-box">', unsafe_allow_html=True)
-        st.markdown('<div style="color:#FF8C00; font-weight:bold; margin-bottom:15px; font-size:0.9em;">[ ⚡ ANALYZING_HOT_DATA_LOGS ]</div>', unsafe_allow_html=True)
+        # 💡 重點：將文字 HTML 完整包裹在 ai-monitor-box 內部
+        ai_html = '<div class="ai-monitor-wrapper"><div class="ai-monitor-box">'
+        ai_html += '<div style="color:#FF8C00; font-weight:bold; margin-bottom:15px; font-size:0.9em;">[ ⚡ ANALYZING_HOT_DATA_LOGS ]</div>'
+        ai_html += '<div class="log-stream">'
         
-        # 建立一整塊日誌文字
-        log_html = '<div class="log-stream">'
         for i, (_, row) in enumerate(ranked_df.iterrows()):
             tag = "HOT" if i == 0 else "STABLE" if i < 5 else "SCAN"
             short_title = row.iloc[0][:15] + "..." if len(row.iloc[0]) > 15 else row.iloc[0]
-            log_html += f'<span class="log-id">[{i+1:02}]</span> <span class="log-tag">{tag}</span> {short_title} // '
+            ai_html += f'<span class="log-id">[{i+1:02}]</span> <span class="log-tag">{tag}</span> {short_title} // '
         
-        log_html += '<br><br><span style="color:#ffffff; opacity:0.8;">> 系統分析報告：本期輿情動能強勁，TOP 01 議題展現極高擴散率，其餘觀測項露出結構穩健，整體數據同步完成。</span>'
-        log_html += '</div>'
+        ai_html += '<br><br><span style="color:#ffffff; opacity:0.8;">> 系統分析報告：本期輿情動能強勁，數據同步完成。</span>'
+        ai_html += '</div></div></div>'
         
-        st.markdown(log_html, unsafe_allow_html=True)
-        st.markdown('</div></div>', unsafe_allow_html=True)
+        st.markdown(ai_html, unsafe_allow_html=True)
 
     # 🔥 排行榜清單
     st.markdown("<div style='color:#00d4ff; margin-bottom:15px; font-weight:bold;'>[ 📊 REAL_TIME_TRENDS ]</div>", unsafe_allow_html=True)

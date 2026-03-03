@@ -23,14 +23,13 @@ st.markdown("<div style='text-align:center; padding:20px;'><h1 style='color:#263
 SHEET_ID = "1cwFO20QP4EZrl5PYVOjVgevJS2D1VzCUazb9x0fHEoI"
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
-# 💡 關鍵功能：當試算表沒抓到媒體名時，自動從網址推導名稱
-def get_display_media(raw_m, url):
-    # 優先使用試算表中的名稱 (需大於1個字且不是預設詞)
+# 💡 自動媒體識別功能：當 F 欄位缺失時，自動從網址推導
+def identify_media(raw_m, url):
     clean_m = str(raw_m).strip()
     if len(clean_m) > 1 and "媒體" not in clean_m and "解析" not in clean_m:
         return clean_m
     
-    # 如果試算表是空的，則解析網址網域
+    # 常見媒體網域對照表
     mapping = {
         "yahoo": "Yahoo新聞", "udn": "聯合新聞網", "ltn": "自由時報", "chinatimes": "中時新聞網",
         "ettoday": "ETtoday", "storm": "風傳媒", "cna": "中央社", "setn": "三立新聞",
@@ -40,48 +39,51 @@ def get_display_media(raw_m, url):
     for key, name in mapping.items():
         if key in domain: return name
     
-    # 若都不在清單內，顯示主網域名稱
+    # 預設顯示網域名稱
     parts = domain.replace("www.", "").split('.')
     return parts[0].upper() if parts else "網路媒體"
 
 try:
+    # 2. 讀取並強制對位：B標題(1), C日期(2), D連結(3), F媒體(5)
     df = pd.read_csv(csv_url, on_bad_lines='skip', engine='python').fillna("")
-
-    # 依照試算表 B(1)標題, C(2)日期, D(3)連結, F(5)媒體 強制對位
+    
     df['title'] = df.iloc[:, 1].astype(str).str.strip()
     df['date'] = df.iloc[:, 2].astype(str).str.strip()
     df['link'] = df.iloc[:, 3].astype(str).str.strip()
     df['raw_media'] = df.iloc[:, 5].astype(str).str.strip()
 
-    # 排除雜訊
-    df = df[df['title'].str.len() > 5]
-    df = df[~df['title'].str.contains("解析失敗|提取中|未知標題")]
+    # 3. 數據過濾：放寬字數限制，排除系統錯誤字眼
+    df = df[df['title'].str.len() > 2]
+    df = df[~df['title'].str.contains("解析失敗|提取中|未知標題|新聞標題")]
 
-    # 聚合
+    # 4. 數據聚合
     grouped = df.groupby('title').agg({'link': list, 'raw_media': list, 'date': 'max'}).reset_index()
     grouped['count'] = grouped['link'].apply(len)
-    grouped = grouped.sort_values(by='count', ascending=False).head(15)
+    grouped = grouped.sort_values(by='count', ascending=False).head(20)
 
-    for i, (_, row) in enumerate(grouped.iterrows()):
-        st.markdown(f"""
-            <div class="news-card">
-                <div class="rank-text">TOP {i+1}</div>
-                <div class="topic-title">{row['title']}</div>
-                <div class="info-bar">
-                    <span>🔥 {row['count']} 次露出</span>
-                    <span>📅 最新日期：{row['date']}</span>
+    if grouped.empty:
+        st.info("💡 目前尚無有效新聞標題，請執行 n8n 寫入正確資料。")
+    else:
+        for i, (_, row) in enumerate(grouped.iterrows()):
+            st.markdown(f"""
+                <div class="news-card">
+                    <div class="rank-text">TOP {i+1}</div>
+                    <div class="topic-title">{row['title']}</div>
+                    <div class="info-bar">
+                        <span>🔥 {row['count']} 次露出</span>
+                        <span>📅 最新日期：{row['date'] if len(row['date']) > 1 else '近期'}</span>
+                    </div>
                 </div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with st.expander(f"📂 查看詳細來源"):
-            seen = set()
-            for l, rm in zip(row['link'], row['raw_media']):
-                if l not in seen:
-                    # 使用補位函數確保名稱一定會出現
-                    m_name = get_display_media(rm, l)
-                    st.write(f"**[{m_name}]** ➔ [閱讀原文]({l})")
-                    seen.add(l)
+                """, unsafe_allow_html=True)
+            
+            with st.expander(f"📂 查看詳細來源"):
+                seen_links = set()
+                for l, rm in zip(row['link'], row['raw_media']):
+                    if l not in seen_links:
+                        # 💡 執行自動識別補位
+                        m_name = identify_media(rm, l)
+                        st.write(f"**[{m_name}]** ➔ [閱讀原文]({l})")
+                        seen_links.add(l)
 
 except Exception as e:
-    st.error(f"連線調整中...")
+    st.error(f"系統資料同步中...")

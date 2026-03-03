@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from urllib.parse import urlparse
 
 # 1. 頁面風格設定
 st.set_page_config(page_title="資策會新聞觀測站", layout="centered")
@@ -23,53 +24,68 @@ st.markdown("<div style='text-align:center; padding:20px;'><h1 style='color:#263
 SHEET_ID = "1cwFO20QP4EZrl5PYVOjVgevJS2D1VzCUazb9x0fHEoI"
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
+def get_media_name(url, raw_media):
+    # 優先使用試算表抓到的名稱，排除時間格式
+    clean_m = str(raw_media).strip()
+    if len(clean_m) > 1 and "午" not in clean_m and "媒體" not in clean_m and "/" not in clean_m:
+        return clean_m
+    
+    # 網址解析保險機制
+    mapping = {
+        "yahoo": "Yahoo新聞", "udn": "聯合新聞網", "ltn": "自由時報", "chinatimes": "中時新聞網",
+        "ettoday": "ETtoday", "storm": "風傳媒", "cna": "中央社", "setn": "三立新聞",
+        "tvbs": "TVBS", "find.org.tw": "FIND中心", "iii.org.tw": "資策會官網"
+    }
+    domain = urlparse(str(url)).netloc.lower()
+    for key, name in mapping.items():
+        if key in domain: return name
+    return domain.split('.')[-2].upper() if '.' in domain else "媒體報導"
+
 try:
-    df = pd.read_csv(csv_url, on_bad_lines='skip', engine='python').fillna("媒體報導")
+    # 讀取資料
+    df = pd.read_csv(csv_url, on_bad_lines='skip', engine='python').fillna("")
 
-    # 智慧識別欄位
-    col_link = next((c for c in df.columns if df[c].astype(str).str.contains('http').any()), None)
-    col_date = next((c for c in df.columns if df[c].astype(str).str.match(r'\d{4}-\d{2}-\d{2}').any()), None)
-    
-    # 排除日期、連結與時間戳記 (含'午')，字數最長的是標題，最短的是媒體
-    other_cols = [c for c in df.columns if c != col_link and c != col_date and not df[c].astype(str).str.contains('午').any()]
-    
-    if len(other_cols) >= 2:
-        col_title = df[other_cols].apply(lambda x: x.astype(str).str.len().mean()).idxmax()
-        col_media = df[other_cols].apply(lambda x: x.astype(str).str.len().mean()).idxmin()
+    # 💡 依照你確認的「第 6 欄」進行強制對位 (索引從 0 開始，所以第 6 欄是 5)
+    if df.shape[1] >= 6:
+        df['c_date'] = df.iloc[:, 1].astype(str).str.strip()
+        df['c_title'] = df.iloc[:, 2].astype(str).str.replace(r'\n', '', regex=True).str.strip()
+        df['c_link'] = df.iloc[:, 3].astype(str).str.strip()
+        df['raw_media'] = df.iloc[:, 5].astype(str).str.strip() # 強制抓取第 6 欄 (F)
     else:
-        col_title = other_cols[0] if other_cols else df.columns[2]
-        col_media = None
+        # 欄位不足時的後備方案
+        df['c_date'] = df.iloc[:, 1]
+        df['c_title'] = df.iloc[:, 2]
+        df['c_link'] = df.iloc[:, 3]
+        df['raw_media'] = ""
 
-    df['title'] = df[col_title].astype(str).str.strip()
-    df['link'] = df[col_link].astype(str).str.strip() if col_link else ""
-    df['media'] = df[col_media].astype(str).str.strip() if col_media else "媒體報導"
-    df['date'] = df[col_date].astype(str).str.strip() if col_date else "近期"
-
-    # 排除標頭雜訊
-    df = df[df['title'].str.len() > 5]
-    df = df[~df['title'].str.contains("標題|Timestamp")]
+    # 排除雜訊
+    df = df[df['c_title'].str.len() > 5]
+    df = df[~df['c_title'].str.contains("標題|Timestamp")]
 
     # 聚合：依標題分組
-    grouped = df.groupby('title').agg({'link': list, 'media': list, 'date': 'max'}).reset_index()
-    grouped['count'] = grouped['link'].apply(len)
-    grouped = grouped.sort_values(by='count', ascending=False).head(20)
+    grouped = df.groupby('c_title').agg({'c_link': list, 'raw_media': list, 'c_date': 'max'}).reset_index()
+    grouped['count'] = grouped['c_link'].apply(len)
+    grouped = grouped.sort_values(by='count', ascending=False).head(15)
 
-    for i, (_, row) in enumerate(grouped.iterrows()):
-        st.markdown(f"""
-            <div class="news-card">
-                <div class="rank-text">RANK #{i+1}</div>
-                <div class="topic-title">{row['title']}</div>
-                <div class="info-bar">
-                    <span>📅 最新日期：{row['date']}</span>
-                    <span>🔥 熱度：{row['count']} 次報導</span>
+    if grouped.empty:
+        st.warning("⚠️ 資料解析中，請確認試算表 C 欄有正確標題。")
+    else:
+        for i, (_, row) in enumerate(grouped.iterrows()):
+            st.markdown(f"""
+                <div class="news-card">
+                    <div class="rank-text">RANK #{i+1}</div>
+                    <div class="topic-title">{row['c_title']}</div>
+                    <div class="info-bar">
+                        <span>📅 最新日期：{row['c_date']}</span>
+                        <span>🔥 熱度：{row['count']} 次報導</span>
+                    </div>
                 </div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with st.expander(f"📂 查看詳細媒體來源"):
-            for m, l in zip(row['media'], row['link']):
-                st.write(f"**[{m}]** ➔ [閱讀原文]({l})")
+                """, unsafe_allow_html=True)
+            
+            with st.expander(f"📂 查看詳細媒體來源"):
+                for link, raw_m in zip(row['c_link'], row['raw_media']):
+                    m_name = get_media_name(link, raw_m)
+                    st.write(f"**[{m_name}]** ➔ [閱讀原文]({link})")
 
 except Exception as e:
-    st.error(f"⚠️ 讀取失敗：{e}")
-    st.info("請確認 n8n 已寫入至少含有日期、標題、連結、媒體名稱的資料。")
+    st.error(f"⚠️ 讀取失敗，原因：{e}")

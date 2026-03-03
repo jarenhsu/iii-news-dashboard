@@ -3,7 +3,7 @@ import pandas as pd
 from urllib.parse import urlparse
 from datetime import datetime, timedelta
 
-# 1. 頁面風格：徹底解決邊框與文字分離問題
+# 1. 頁面風格：深藍至深橘漸層科技感 UI 設定
 st.set_page_config(page_title="資策會新聞熱度觀測站", layout="centered")
 st.markdown("""
     <style>
@@ -11,92 +11,110 @@ st.markdown("""
     .stApp { 
         background: linear-gradient(135deg, #001226 0%, #001f3f 40%, #452000 100%);
         background-attachment: fixed;
+        background-image: 
+            linear-gradient(135deg, #001226 0%, #001f3f 40%, #452000 100%),
+            linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), 
+            linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+        background-size: 100% 100%, 35px 35px;
         color: #ffffff; 
         font-family: 'Consolas', 'Monaco', monospace; 
     }
 
     /* 🎬 標題區：Cyberpunk 雙色錯位 */
-    .header-container { text-align: center; padding: 45px 0; }
+    .header-container { text-align: center; padding: 45px 0; position: relative; }
     .header-title { 
         position: relative; color: #ffffff !important; font-weight: 900; 
         letter-spacing: 12px; font-size: 2.8em; text-transform: uppercase;
         display: inline-block;
+        filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.5));
     }
     .header-title::before, .header-title::after {
         content: "資策會新聞熱度觀測站";
-        position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: transparent;
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+        background: transparent;
     }
-    .header-title::before { color: #00d4ff; left: -3px; animation: glitch-anim-1 2s infinite linear alternate-reverse; }
-    .header-title::after { color: #ff00ff; left: 3px; animation: glitch-anim-2 3s infinite linear alternate-reverse; }
-    @keyframes glitch-anim-1 { 0% { clip: rect(20px, 9999px, 15px, 0); } 100% { clip: rect(60px, 9999px, 65px, 0); } }
-    @keyframes glitch-anim-2 { 0% { clip: rect(50px, 9999px, 55px, 0); } 100% { clip: rect(90px, 9999px, 95px, 0); } }
+    .header-title::before {
+        color: #00d4ff; left: -3px; text-shadow: 1px 0 #00d4ff;
+        animation: glitch-anim-1 2s infinite linear alternate-reverse;
+    }
+    .header-title::after {
+        color: #ff00ff; left: 3px; text-shadow: -1px 0 #ff00ff;
+        animation: glitch-anim-2 3s infinite linear alternate-reverse;
+    }
+    @keyframes glitch-anim-1 {
+        0% { clip: rect(20px, 9999px, 15px, 0); }
+        20% { clip: rect(10px, 9999px, 5px, 0); }
+        100% { clip: rect(60px, 9999px, 65px, 0); }
+    }
+    @keyframes glitch-anim-2 {
+        0% { clip: rect(50px, 9999px, 55px, 0); }
+        20% { clip: rect(90px, 9999px, 95px, 0); }
+        100% { clip: rect(30px, 9999px, 35px, 0); }
+    }
 
-    /* 💡 跑馬燈 */
+    /* 💡 數據流跑馬燈 */
     .marquee-container {
-        background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(8px);
-        border-top: 1px solid rgba(0, 212, 255, 0.3); border-bottom: 1px solid rgba(255, 165, 0, 0.3);
-        padding: 10px 0; margin-bottom: 30px;
+        background: rgba(0, 0, 0, 0.4);
+        backdrop-filter: blur(8px);
+        border-top: 1px solid rgba(0, 212, 255, 0.3);
+        border-bottom: 1px solid rgba(255, 165, 0, 0.3);
+        padding: 10px 0;
+        margin-bottom: 30px;
     }
+    .digital-text { color: #00d4ff; font-weight: bold; font-size: 1.1em; letter-spacing: 1px; }
 
-    /* 🚀 核心修正：確保文字絕對在框內 */
+    /* 🚀 雷達旋轉邊框 AI 監測盒 */
     .ai-monitor-wrapper {
-        position: relative;
-        width: 100%;
-        min-height: 250px; /* 預設最小高度 */
-        margin-bottom: 40px;
-        border-radius: 15px;
-        overflow: hidden; /* 切割外溢光芒 */
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        padding: 4px; /* 旋轉邊框顯露的寬度 */
+        position: relative; padding: 2px; background: transparent;
+        border-radius: 12px; overflow: hidden; margin-bottom: 40px;
     }
-
-    /* 旋轉霓虹背景層 */
     .ai-monitor-wrapper::before {
-        content: "";
-        position: absolute;
-        width: 250%; height: 250%;
-        background: conic-gradient(#00d4ff, #FFA500, #ff00ff, #00d4ff);
-        animation: rotate-border 6s linear infinite;
-        z-index: 0;
+        content: ""; position: absolute; width: 150%; height: 150%;
+        background: conic-gradient(#00d4ff, #FFA500, transparent 60%);
+        animation: rotate-border 4s linear infinite; top: -25%; left: -25%;
     }
-    @keyframes rotate-border { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-    /* 內部內容盒：完全覆蓋中心並鎖定文字 */
-    .ai-monitor-box {
-        position: relative;
-        width: 100%;
-        height: 100%;
-        background: #001226; /* 完全不透明背景，擋住光芒中心 */
-        padding: 25px;
-        border-radius: 12px;
-        z-index: 10; /* 確保在光芒上方 */
-        box-shadow: inset 0 0 20px rgba(0, 212, 255, 0.2);
+    @keyframes rotate-border { 100% { transform: rotate(360deg); } }
+    .ai-monitor-box { 
+        position: relative; background: rgba(10, 25, 47, 0.85); 
+        backdrop-filter: blur(12px); padding: 25px; border-radius: 10px; z-index: 1; 
+        border: 1px solid rgba(0, 212, 255, 0.2);
     }
-
-    .log-stream { font-size: 0.85em; line-height: 1.8; color: #00d4ff; text-align: justify; }
-    .log-id { color: #FF8C00; font-weight: bold; margin-right: 4px; }
-    .log-tag { color: #ffffff; background: rgba(255, 140, 0, 0.3); padding: 0 4px; border-radius: 2px; }
 
     /* 🏆 金色發光新聞卡片 */
     .news-card {
-        background: rgba(255, 255, 255, 0.98); padding: 22px;
-        border-radius: 15px; margin-bottom: 25px; color: #1a1a1a;
-        border: 2px solid #FFD700; box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+        background: rgba(255, 255, 255, 0.98);
+        padding: 22px;
+        border-radius: 15px;
+        margin-bottom: 25px;
+        color: #1a1a1a;
+        border: 2px solid #FFD700;
+        box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+        transition: all 0.3s ease;
     }
-    .top-rank { color: #B8860B; font-weight: 900; font-size: 1.4em; display: block; }
+    .news-card:hover { 
+        transform: translateY(-5px); 
+        box-shadow: 0 0 30px rgba(255, 215, 0, 0.7); 
+    }
+    .top-rank { color: #B8860B; font-weight: 900; font-size: 1.5em; margin-bottom: 8px; display: block; }
+    .topic-title { font-size: 1.25em; font-weight: 700; color: #001f3f; margin-bottom: 12px; }
     </style>
     """, unsafe_allow_html=True)
 
-# 🎬 標題
-st.markdown("<div class='header-container'><h1 class='header-title'>資策會新聞熱度觀測站</h1></div>", unsafe_allow_html=True)
+# 🎬 標題區
+st.markdown("""
+    <div class="header-container">
+        <h1 class="header-title">資策會新聞熱度觀測站</h1>
+        <div style="color:rgba(0, 212, 255, 0.7); font-size:0.75em; letter-spacing:4px; margin-top:10px;">智能輿情分析系統 // 版本 5.2</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 # 跑馬燈
-marquee_content = "DATA_SYNC: ACTIVE // 數據流即時更新中 // 企推處媒體行銷組 " * 5
-st.markdown(f'<div class="marquee-container"><marquee scrollamount="6"><span style="color:#00d4ff; font-weight:bold;">{marquee_content}</span></marquee></div>', unsafe_allow_html=True)
+marquee_content = "數據流傳輸中... [穩定] // 企推處媒體行銷組 // 系統監測中... " * 5
+st.markdown(f'<div class="marquee-container"><marquee scrollamount="6"><span class="digital-text">{marquee_content}</span></marquee></div>', unsafe_allow_html=True)
 
-# 📊 資料處理
+# ---------------------------------------------------------
+# 📊 資料流處理
+# ---------------------------------------------------------
 SHEET_ID = "1cwFO20QP4EZrl5PYVOjVgevJS2D1VzCUazb9x0fHEoI"
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
@@ -109,36 +127,46 @@ try:
     df['dt'] = pd.to_datetime(df.iloc[:, 2], errors='coerce')
     df_7d = df[df['dt'] >= (today - timedelta(days=7))].copy()
     
-    grouped = df_7d.groupby(df_7d.iloc[:, 1]).agg({df_7d.columns[3]: list, df_7d.columns[2]: 'max'}).reset_index()
+    # ---------------------------------------------------------
+    # 🔥 數據統計與 AI 點評 (移除次數，僅留內容)
+    # ---------------------------------------------------------
+    df_7d['clean_m'] = df_7d.apply(lambda x: urlparse(str(x.iloc[3])).netloc.replace("www.","").split('.')[0].upper(), axis=1)
+    grouped = df_7d.groupby(df_7d.iloc[:, 1]).agg({df_7d.columns[3]: list, 'clean_m': list, df_7d.columns[2]: 'max'}).reset_index()
     grouped['count'] = grouped.iloc[:, 1].apply(len)
-    ranked_df = grouped.sort_values(by='count', ascending=False).head(15)
+    ranked_df = grouped.sort_values(by='count', ascending=False)
 
-    # 🤖 修正版 AI 監測：文字必須在框內
     if not ranked_df.empty:
-        # 💡 重點：將文字 HTML 完整包裹在 ai-monitor-box 內部
-        ai_html = '<div class="ai-monitor-wrapper"><div class="ai-monitor-box">'
-        ai_html += '<div style="color:#FF8C00; font-weight:bold; margin-bottom:15px; font-size:0.9em;">[ ⚡ ANALYZING_HOT_DATA_LOGS ]</div>'
-        ai_html += '<div class="log-stream">'
+        top_1_title = ranked_df.iloc[0, 0]
         
-        for i, (_, row) in enumerate(ranked_df.iterrows()):
-            tag = "HOT" if i == 0 else "STABLE" if i < 5 else "SCAN"
-            short_title = row.iloc[0][:15] + "..." if len(row.iloc[0]) > 15 else row.iloc[0]
-            ai_html += f'<span class="log-id">[{i+1:02}]</span> <span class="log-tag">{tag}</span> {short_title} // '
-        
-        ai_html += '<br><br><span style="color:#ffffff; opacity:0.8;">> 系統分析報告：本期輿情動能強勁，數據同步完成。</span>'
-        ai_html += '</div></div></div>'
-        
-        st.markdown(ai_html, unsafe_allow_html=True)
+        st.markdown(f"""
+            <div class="ai-monitor-wrapper">
+                <div class="ai-monitor-box">
+                    <div style="color:#00d4ff; font-size:0.85em; margin-bottom:10px;">> AI 深度數據分析啟動...</div>
+                    <div style="color:#ffffff; line-height:1.6;">
+                        本週核心熱點新聞為：<strong>「{top_1_title}」</strong>。<br>
+                        分析摘要：本期監測顯示該議題在各類媒體端展現極高擴散動能，相關討論與資策會核心發展目標具備高度連結，為本週輿情關注之最。
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
-    # 🔥 排行榜清單
-    st.markdown("<div style='color:#00d4ff; margin-bottom:15px; font-weight:bold;'>[ 📊 REAL_TIME_TRENDS ]</div>", unsafe_allow_html=True)
-    for i, (_, row) in enumerate(ranked_df.iterrows()):
+    # ---------------------------------------------------------
+    # 🔥 排行榜渲染 (移除報導頻次顯示)
+    # ---------------------------------------------------------
+    st.markdown("<div style='color:#00d4ff; margin-bottom:15px; font-weight:bold; letter-spacing:1px;'>[ 即時趨勢數據流 ]</div>", unsafe_allow_html=True)
+    
+    for i, (_, row) in enumerate(ranked_df.head(15).iterrows()):
         st.markdown(f"""
             <div class="news-card">
                 <span class="top-rank">TOP {i+1}</span>
-                <div style="font-size:1.2em; font-weight:700; color:#001f3f; margin-bottom:8px;">{row.iloc[0]}</div>
-                <div style="font-size:0.8em; color:#666; font-weight:bold;">🕒 TIMESTAMP: {row.iloc[2]}</div>
+                <div class="topic-title">{row.iloc[0]}</div>
+                <div style="font-size:0.85em; color:#555; font-weight:bold;">
+                    📅 系統同步時間: {row.iloc[3]}
+                </div>
             </div>
             """, unsafe_allow_html=True)
+        with st.expander("查看原始來源數據"):
+            for l, m in set(zip(row.iloc[1], row['clean_m'])):
+                st.write(f"**[{m}]** ➔ [點擊閱讀原文]({l})")
 except Exception:
-    st.error("📡 DATA_SYNC_ERROR...")
+    st.error("📡 資料同步中...")

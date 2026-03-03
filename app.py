@@ -3,7 +3,7 @@ import pandas as pd
 from urllib.parse import urlparse
 from datetime import datetime, timedelta
 
-# 1. 科技電影感視覺系統設定
+# 1. 科技電影感視覺系統設定 (移除模糊發光，改用銳利錯位)
 st.set_page_config(page_title="資策會新聞熱度觀測站", layout="centered")
 st.markdown("""
     <style>
@@ -17,84 +17,96 @@ st.markdown("""
         font-family: 'Consolas', 'Monaco', monospace; 
     }
 
-    /* 🎬 科技電影感標題特效 */
-    .header-container { text-align: center; padding: 40px 0; position: relative; }
+    /* 🎬 帥氣銳利：Cyberpunk 雙色錯位標題 */
+    .header-container { text-align: center; padding: 45px 0; position: relative; }
+    
     .header-title { 
-        color: #00d4ff !important; 
+        position: relative;
+        color: #ffffff !important; /* 主文字為純白，確保清晰 */
         font-weight: 900; 
-        letter-spacing: 10px; 
+        letter-spacing: 12px; 
         font-size: 2.8em; 
         text-transform: uppercase;
-        /* 霓虹發光效果 */
-        text-shadow: 0 0 10px #00d4ff, 0 0 20px #00d4ff, 0 0 40px #00d4ff;
-        animation: glitch 3s infinite;
+        display: inline-block;
+        /* 💡 防止發光導致模糊 */
+        text-shadow: None !important; 
     }
-    
-    /* 故障閃爍動畫 (Glitch Effect) */
-    @keyframes glitch {
-        0% { transform: skew(0deg); }
-        2% { transform: skew(10deg); opacity: 0.8; }
-        4% { transform: skew(-10deg); opacity: 0.9; }
-        6% { transform: skew(0deg); }
-        100% { transform: skew(0deg); }
+
+    /* 💡 錯位特效層 (青藍與洋紅) */
+    .header-title::before,
+    .header-title::after {
+        content: "資策會新聞熱度觀測站";
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: #000c1d; /* 遮罩底色 */
+    }
+
+    /* 青藍錯位層 */
+    .header-title::before {
+        color: #00d4ff;
+        left: -3px; /* 向左錯位 */
+        text-shadow: 1px 0 #00d4ff;
+        animation: glitch-anim-1 2s infinite linear alternate-reverse;
+    }
+
+    /* 洋紅錯位層 */
+    .header-title::after {
+        color: #ff00ff;
+        left: 3px; /* 向右錯位 */
+        text-shadow: -1px 0 #ff00ff;
+        animation: glitch-anim-2 3s infinite linear alternate-reverse;
+    }
+
+    /* 錯位動畫 */
+    @keyframes glitch-anim-1 {
+        0% { clip: rect(20px, 9999px, 15px, 0); }
+        10% { clip: rect(80px, 9999px, 85px, 0); }
+        20% { clip: rect(10px, 9999px, 5px, 0); }
+        100% { clip: rect(60px, 9999px, 65px, 0); }
+    }
+    @keyframes glitch-anim-2 {
+        0% { clip: rect(50px, 9999px, 55px, 0); }
+        10% { clip: rect(10px, 9999px, 15px, 0); }
+        20% { clip: rect(90px, 9999px, 95px, 0); }
+        100% { clip: rect(30px, 9999px, 35px, 0); }
     }
 
     .header-sub { 
-        color: #00d4ff; 
-        font-size: 0.8em; 
-        letter-spacing: 5px; 
-        opacity: 0.6;
-        margin-top: 10px;
+        color: #00d4ff; font-size: 0.8em; letter-spacing: 5px; opacity: 0.7; margin-top: 15px;
     }
 
-    /* 💡 數據流跑馬燈 */
+    /* 數據流跑馬燈 */
     .marquee-container {
         background: rgba(0, 0, 0, 0.8);
         border-top: 2px solid #00d4ff;
         border-bottom: 2px solid #00d4ff;
         padding: 10px 0;
         margin-bottom: 40px;
-        box-shadow: 0 0 20px rgba(0, 212, 255, 0.2);
     }
     .digital-text { color: #00d4ff; font-weight: bold; font-size: 1.1em; letter-spacing: 2px; }
-
-    /* 🚀 旋轉邊框 AI 監測盒 */
-    .ai-monitor-wrapper {
-        position: relative; padding: 2px; background: transparent;
-        border-radius: 10px; overflow: hidden; margin-bottom: 40px;
-    }
-    .ai-monitor-wrapper::before {
-        content: ""; position: absolute; width: 150%; height: 150%;
-        background: conic-gradient(#00d4ff, #ff4500, transparent 50%);
-        animation: rotate-border 4s linear infinite; top: -25%; left: -25%;
-    }
-    @keyframes rotate-border { 100% { transform: rotate(360deg); } }
-    .ai-monitor-box { position: relative; background: #001226; padding: 25px; border-radius: 8px; z-index: 1; }
 
     /* 🏆 金色發光新聞卡片 */
     .news-card {
         background: rgba(255, 255, 255, 0.98);
         padding: 25px;
-        border-radius: 15px;
+        border-radius: 12px;
         margin-bottom: 30px;
         color: #1a1a1a;
         border: 2px solid #FFD700;
         box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
-        transition: all 0.3s ease-in-out;
+        transition: transform 0.3s ease-in-out;
     }
-    .news-card:hover {
-        transform: scale(1.02);
-        box-shadow: 0 0 30px rgba(255, 215, 0, 0.8);
-    }
+    .news-card:hover { transform: scale(1.02); box-shadow: 0 0 30px rgba(255, 215, 0, 0.8); }
     .top-rank { color: #B8860B; font-weight: 900; font-size: 1.6em; margin-bottom: 10px; display: block; }
     .topic-title { font-size: 1.3em; font-weight: 700; color: #001f3f; line-height: 1.5; }
     </style>
     """, unsafe_allow_html=True)
 
-# 🎬 標題區：加入 Glitch 特效
+# 🎬 帥氣錯位標題區
 st.markdown("""
     <div class="header-container">
-        <h1 class="header-title">資策會新聞熱度觀測站</h1>
+        <h1 class="header-title" data-text="資策會新聞熱度觀測站">資策會新聞熱度觀測站</h1>
         <div class="header-sub">SYSTEM SECURE // DATA ENCRYPTED // ACTIVE</div>
     </div>
     """, unsafe_allow_html=True)
@@ -111,7 +123,6 @@ csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
 try:
     df_raw = pd.read_csv(csv_url, on_bad_lines='skip', engine='python').fillna("")
-    # 徹底過濾內部網頁
     mask = df_raw.apply(lambda row: row.astype(str).str.contains('find.org.tw', case=False).any(), axis=1)
     df = df_raw[~mask].copy()
     
@@ -123,14 +134,10 @@ try:
     top_3 = df_7d.groupby(df_7d.iloc[:, 1]).size().sort_values(ascending=False).head(3)
     if not top_3.empty:
         st.markdown(f"""
-            <div class="ai-monitor-wrapper">
-                <div class="ai-monitor-box">
-                    <div style="color:#00d4ff; font-size:0.8em; margin-bottom:10px;">> DEEP_DATA_SCAN_LOG_v4.0</div>
-                    <div style="color:#00d4ff; line-height:1.8; font-size:1.1em;">
-                        偵測到本週核心熱點：『{ ' / '.join(top_3.index.tolist()) }』。<br>
-                        分析報告：本期聲量曲線穩定攀升，數位轉型相關話題在主流媒體之擴散效率極高。
-                    </div>
-                </div>
+            <div style="background:#1a3a5a; padding:20px; border-radius:10px; border:1px solid #00d4ff; margin-bottom:40px; color:#00d4ff;">
+                > DEEP_DATA_SCAN_LOG_v4.1<br>
+                > 偵測到本週核心熱點：『{ ' / '.join(top_3.index.tolist()) }』。<br>
+                > 分析報告：資策會相關動態在數位人才話題之聲量分佈健全，媒體曝光結構穩定。
             </div>
             """, unsafe_allow_html=True)
 

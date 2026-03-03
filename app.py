@@ -3,7 +3,7 @@ import pandas as pd
 from urllib.parse import urlparse
 from datetime import datetime, timedelta
 
-# 1. 頁面風格：修正 AI 框框溢出問題與視覺優化
+# 1. 頁面風格：精簡版 AI 點評日誌與邊框整合
 st.set_page_config(page_title="資策會新聞熱度觀測站", layout="centered")
 st.markdown("""
     <style>
@@ -26,7 +26,7 @@ st.markdown("""
         position: relative; color: #ffffff !important; font-weight: 900; 
         letter-spacing: 12px; font-size: 2.8em; text-transform: uppercase;
         display: inline-block;
-        filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.5));
+        filter: drop-shadow(0 0 10px #00d4ff);
     }
     .header-title::before, .header-title::after {
         content: "資策會新聞熱度觀測站";
@@ -35,7 +35,7 @@ st.markdown("""
     .header-title::before { color: #00d4ff; left: -3px; animation: glitch-anim-1 2s infinite linear alternate-reverse; }
     .header-title::after { color: #ff00ff; left: 3px; animation: glitch-anim-2 3s infinite linear alternate-reverse; }
     @keyframes glitch-anim-1 { 0% { clip: rect(20px, 9999px, 15px, 0); } 100% { clip: rect(60px, 9999px, 65px, 0); } }
-    @keyframes glitch-anim-2 { 0% { clip: rect(50px, 9999px, 55px, 0); } 100% { clip: rect(30px, 9999px, 35px, 0); } }
+    @keyframes glitch-anim-2 { 0% { clip: rect(50px, 9999px, 55px, 0); } 100% { clip: rect(90px, 9999px, 95px, 0); } }
 
     /* 💡 跑馬燈 */
     .marquee-container {
@@ -43,51 +43,57 @@ st.markdown("""
         border-top: 1px solid rgba(0, 212, 255, 0.3); border-bottom: 1px solid rgba(255, 165, 0, 0.3);
         padding: 10px 0; margin-bottom: 30px;
     }
-    .digital-text { color: #00d4ff; font-weight: bold; font-size: 1.1em; }
 
-    /* 🚀 AI 監測盒：修正定位與自動高度 */
+    /* 🚀 整合式雷達邊框與精簡日誌內容 */
     .ai-monitor-wrapper {
-        position: relative; 
-        padding: 2px; 
-        background: transparent;
-        border-radius: 12px; 
-        overflow: hidden; /* 確保旋轉邊框不外溢 */
-        margin-bottom: 40px;
+        position: relative;
         width: 100%;
+        margin-bottom: 40px;
+        padding: 4px;
+        background: rgba(10, 25, 47, 0.6);
+        border-radius: 15px;
+        overflow: hidden;
+        z-index: 1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
     }
     .ai-monitor-wrapper::before {
-        content: ""; position: absolute; width: 150%; height: 150%;
-        background: conic-gradient(#00d4ff, #FFA500, transparent 60%);
-        animation: rotate-border 4s linear infinite; top: -25%; left: -25%;
+        content: "";
+        position: absolute; width: 200%; height: 200%;
+        background: conic-gradient(#00d4ff, #FFA500, #ff00ff, #00d4ff);
+        animation: rotate-border 6s linear infinite;
+        z-index: -1;
     }
-    @keyframes rotate-border { 100% { transform: rotate(360deg); } }
-    
-    .ai-monitor-box { 
-        position: relative; 
-        background: rgba(10, 25, 47, 0.95); /* 增加不透明度 */
-        backdrop-filter: blur(15px); 
-        padding: 25px; 
-        border-radius: 10px; 
-        z-index: 1; 
-        border: 1px solid rgba(0, 212, 255, 0.2);
-        max-height: 600px; /* 防止過長 */
-        overflow-y: auto;  /* 若內容真的超長則內部捲動 */
-    }
-    .ai-line { 
-        color: #00d4ff; font-size: 0.85em; margin-bottom: 10px; 
-        border-left: 3px solid #FF8C00; padding-left: 10px;
-        line-height: 1.5;
-    }
-    .ai-id { color: #FF8C00; font-weight: bold; margin-right: 5px; }
+    @keyframes rotate-border { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-    /* 🏆 金色發光卡片 */
+    .ai-monitor-box {
+        position: relative;
+        width: 100%;
+        background: #001226;
+        padding: 25px;
+        border-radius: 12px;
+        z-index: 2;
+        box-shadow: inset 0 0 20px rgba(0, 212, 255, 0.2);
+    }
+
+    /* 日誌風緊湊排版 */
+    .log-stream {
+        font-size: 0.85em;
+        line-height: 1.8;
+        color: #00d4ff;
+        text-align: justify;
+    }
+    .log-id { color: #FF8C00; font-weight: bold; margin-right: 4px; }
+    .log-tag { color: #ffffff; background: rgba(255, 140, 0, 0.2); padding: 0 4px; border-radius: 2px; }
+
+    /* 🏆 金色發光新聞卡片 */
     .news-card {
         background: rgba(255, 255, 255, 0.98); padding: 22px;
         border-radius: 15px; margin-bottom: 25px; color: #1a1a1a;
         border: 2px solid #FFD700; box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
     }
-    .top-rank { color: #B8860B; font-weight: 900; font-size: 1.5em; margin-bottom: 8px; display: block; }
-    .topic-title { font-size: 1.25em; font-weight: 700; color: #001f3f; }
+    .top-rank { color: #B8860B; font-weight: 900; font-size: 1.4em; display: block; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -95,12 +101,10 @@ st.markdown("""
 st.markdown("<div class='header-container'><h1 class='header-title'>資策會新聞熱度觀測站</h1></div>", unsafe_allow_html=True)
 
 # 跑馬燈
-marquee_content = "SYSTEM_SYNC: ACTIVE // 企推處媒體行銷組 // 數據封包傳輸中... " * 5
-st.markdown(f'<div class="marquee-container"><marquee scrollamount="6"><span class="digital-text">{marquee_content}</span></marquee></div>', unsafe_allow_html=True)
+marquee_content = "DATA_SYNC: ACTIVE // 數據流即時更新中 // 企推處媒體行銷組 " * 5
+st.markdown(f'<div class="marquee-container"><marquee scrollamount="6"><span style="color:#00d4ff; font-weight:bold;">{marquee_content}</span></marquee></div>', unsafe_allow_html=True)
 
-# ---------------------------------------------------------
-# 📊 資料流處理
-# ---------------------------------------------------------
+# 📊 資料處理
 SHEET_ID = "1cwFO20QP4EZrl5PYVOjVgevJS2D1VzCUazb9x0fHEoI"
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
@@ -113,52 +117,37 @@ try:
     df['dt'] = pd.to_datetime(df.iloc[:, 2], errors='coerce')
     df_7d = df[df['dt'] >= (today - timedelta(days=7))].copy()
     
-    df_7d['clean_m'] = df_7d.apply(lambda x: urlparse(str(x.iloc[3])).netloc.replace("www.","").split('.')[0].upper(), axis=1)
-    grouped = df_7d.groupby(df_7d.iloc[:, 1]).agg({df_7d.columns[3]: list, 'clean_m': list, df_7d.columns[2]: 'max'}).reset_index()
+    grouped = df_7d.groupby(df_7d.iloc[:, 1]).agg({df_7d.columns[3]: list, df_7d.columns[2]: 'max'}).reset_index()
     grouped['count'] = grouped.iloc[:, 1].apply(len)
     ranked_df = grouped.sort_values(by='count', ascending=False).head(15)
 
-    # ---------------------------------------------------------
-    # 🤖 AI 深度輿情點評 (修正定位版)
-    # ---------------------------------------------------------
+    # 🤖 AI 監測：精簡數據日誌流排版
     if not ranked_df.empty:
         st.markdown('<div class="ai-monitor-wrapper"><div class="ai-monitor-box">', unsafe_allow_html=True)
-        st.markdown('<div style="color:#FF8C00; font-weight:bold; margin-bottom:15px; letter-spacing:1px; font-size:0.9em;">[ ⚡ AI 全域數據監測中 ]</div>', unsafe_allow_html=True)
+        st.markdown('<div style="color:#FF8C00; font-weight:bold; margin-bottom:15px; font-size:0.9em;">[ ⚡ ANALYZING_HOT_DATA_LOGS ]</div>', unsafe_allow_html=True)
         
+        # 建立一整塊日誌文字
+        log_html = '<div class="log-stream">'
         for i, (_, row) in enumerate(ranked_df.iterrows()):
-            tag = "焦點" if i == 0 else "穩定" if i < 5 else "偵測"
-            comment = "本週焦點熱點" if i == 0 else "報導結構穩定" if i < 5 else "具備後續動能"
-            
-            # 💡 限制標題長度避免擠出框框
-            short_title = row.iloc[0][:28] + "..." if len(row.iloc[0]) > 28 else row.iloc[0]
-            
-            st.markdown(f"""
-                <div class="ai-line">
-                    <span class="ai-id">[{i+1:02}]</span> 
-                    <span style="color:#ffffff;">{short_title}</span><br>
-                    <span style="font-size:0.8em; color:rgba(0, 212, 255, 0.6);">>> {tag} | {comment}</span>
-                </div>
-            """, unsafe_allow_html=True)
+            tag = "HOT" if i == 0 else "STABLE" if i < 5 else "SCAN"
+            short_title = row.iloc[0][:15] + "..." if len(row.iloc[0]) > 15 else row.iloc[0]
+            log_html += f'<span class="log-id">[{i+1:02}]</span> <span class="log-tag">{tag}</span> {short_title} // '
         
+        log_html += '<br><br><span style="color:#ffffff; opacity:0.8;">> 系統分析報告：本期輿情動能強勁，TOP 01 議題展現極高擴散率，其餘觀測項露出結構穩健，整體數據同步完成。</span>'
+        log_html += '</div>'
+        
+        st.markdown(log_html, unsafe_allow_html=True)
         st.markdown('</div></div>', unsafe_allow_html=True)
 
-    # ---------------------------------------------------------
-    # 🔥 排行榜卡片
-    # ---------------------------------------------------------
-    st.markdown("<div style='color:#00d4ff; margin-bottom:15px; font-weight:bold; letter-spacing:1px;'>[ 📊 即時趨勢數據清單 ]</div>", unsafe_allow_html=True)
-    
+    # 🔥 排行榜清單
+    st.markdown("<div style='color:#00d4ff; margin-bottom:15px; font-weight:bold;'>[ 📊 REAL_TIME_TRENDS ]</div>", unsafe_allow_html=True)
     for i, (_, row) in enumerate(ranked_df.iterrows()):
         st.markdown(f"""
             <div class="news-card">
                 <span class="top-rank">TOP {i+1}</span>
-                <div class="topic-title">{row.iloc[0]}</div>
-                <div style="font-size:0.85em; color:#555; font-weight:bold; margin-top:8px;">
-                    📅 系統觀測日期: {row.iloc[3]}
-                </div>
+                <div style="font-size:1.2em; font-weight:700; color:#001f3f; margin-bottom:8px;">{row.iloc[0]}</div>
+                <div style="font-size:0.8em; color:#666; font-weight:bold;">🕒 TIMESTAMP: {row.iloc[2]}</div>
             </div>
             """, unsafe_allow_html=True)
-        with st.expander("DECODE_DETAILS"):
-            for l, m in set(zip(row.iloc[1], row['clean_m'])):
-                st.write(f"**[{m}]** ➔ [LINK]({l})")
 except Exception:
-    st.error("📡 系統初始化中...")
+    st.error("📡 DATA_SYNC_ERROR...")

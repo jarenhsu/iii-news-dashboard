@@ -5,10 +5,16 @@ from datetime import datetime, timedelta
 
 # 1. 頁面風格：深藍至深橘漸層科技感 UI 設定
 st.set_page_config(page_title="資策會新聞熱度觀測站", layout="centered")
-st.markdown("""
+
+# 計算日期區間
+today = datetime.now()
+seven_days_ago = today - timedelta(days=7)
+date_range_str = f"{seven_days_ago.strftime('%Y.%m.%d')} - {today.strftime('%Y.%m.%d')}"
+
+st.markdown(f"""
     <style>
     /* 🌌 背景設定 */
-    .stApp { 
+    .stApp {{ 
         background: linear-gradient(135deg, #001226 0%, #001f3f 40%, #452000 100%);
         background-attachment: fixed;
         background-image: 
@@ -18,85 +24,77 @@ st.markdown("""
         background-size: 100% 100%, 35px 35px;
         color: #ffffff; 
         font-family: 'Consolas', 'Monaco', monospace; 
-    }
+    }}
 
     /* 🎬 標題區：Cyberpunk 雙色錯位 */
-    .header-container { text-align: center; padding: 45px 0; position: relative; }
-    .header-title { 
+    .header-container {{ text-align: center; padding: 45px 0 10px 0; position: relative; }}
+    .header-title {{ 
         position: relative; color: #ffffff !important; font-weight: 900; 
         letter-spacing: 12px; font-size: 2.8em; text-transform: uppercase;
         display: inline-block;
         filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.5));
-    }
-    .header-title::before, .header-title::after {
+    }}
+    .header-title::before, .header-title::after {{
         content: "資策會新聞熱度觀測站";
         position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
         background: transparent;
-    }
-    .header-title::before {
-        color: #00d4ff; left: -3px; text-shadow: 1px 0 #00d4ff;
-        animation: glitch-anim-1 2s infinite linear alternate-reverse;
-    }
-    .header-title::after {
-        color: #ff00ff; left: 3px; text-shadow: -1px 0 #ff00ff;
-        animation: glitch-anim-2 3s infinite linear alternate-reverse;
-    }
-    @keyframes glitch-anim-1 {
-        0% { clip: rect(20px, 9999px, 15px, 0); }
-        20% { clip: rect(10px, 9999px, 5px, 0); }
-        100% { clip: rect(60px, 9999px, 65px, 0); }
-    }
-    @keyframes glitch-anim-2 {
-        0% { clip: rect(50px, 9999px, 55px, 0); }
-        20% { clip: rect(90px, 9999px, 95px, 0); }
-        100% { clip: rect(30px, 9999px, 35px, 0); }
-    }
+    }}
+    .header-title::before {{ color: #00d4ff; left: -3px; text-shadow: 1px 0 #00d4ff; animation: glitch-anim-1 2s infinite linear alternate-reverse; }}
+    .header-title::after {{ color: #ff00ff; left: 3px; text-shadow: -1px 0 #ff00ff; animation: glitch-anim-2 3s infinite linear alternate-reverse; }}
+
+    @keyframes glitch-anim-1 {{ 0% {{ clip: rect(20px, 9999px, 15px, 0); }} 100% {{ clip: rect(60px, 9999px, 65px, 0); }} }}
+    @keyframes glitch-anim-2 {{ 0% {{ clip: rect(50px, 9999px, 55px, 0); }} 100% {{ clip: rect(90px, 9999px, 95px, 0); }} }}
+
+    /* 📅 日期狀態列 */
+    .status-bar {{
+        text-align: center;
+        margin-bottom: 30px;
+        font-size: 0.85em;
+        color: #00d4ff;
+        letter-spacing: 2px;
+        background: rgba(0, 212, 255, 0.1);
+        border: 1px solid rgba(0, 212, 255, 0.3);
+        display: inline-block;
+        padding: 5px 20px;
+        border-radius: 50px;
+        left: 50%;
+        transform: translateX(-50%);
+        position: relative;
+    }}
 
     /* 💡 數據流跑馬燈 */
-    .marquee-container {
-        background: rgba(0, 0, 0, 0.4);
-        backdrop-filter: blur(8px);
-        border-top: 1px solid rgba(0, 212, 255, 0.3);
-        border-bottom: 1px solid rgba(255, 165, 0, 0.3);
-        padding: 10px 0;
-        margin-bottom: 30px;
+    .marquee-container {{
+        background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(8px);
+        border-top: 1px solid rgba(0, 212, 255, 0.3); border-bottom: 1px solid rgba(255, 165, 0, 0.3);
+        padding: 10px 0; margin-bottom: 30px;
     }
-    .digital-text { color: #00d4ff; font-weight: bold; font-size: 1.1em; letter-spacing: 1px; }
+    .digital-text {{ color: #00d4ff; font-weight: bold; font-size: 1.1em; letter-spacing: 1px; }}
 
     /* 🚀 雷達旋轉邊框 AI 監測盒 */
-    .ai-monitor-wrapper {
+    .ai-monitor-wrapper {{
         position: relative; padding: 2px; background: transparent;
         border-radius: 12px; overflow: hidden; margin-bottom: 40px;
-    }
-    .ai-monitor-wrapper::before {
+    }}
+    .ai-monitor-wrapper::before {{
         content: ""; position: absolute; width: 150%; height: 150%;
         background: conic-gradient(#00d4ff, #FFA500, transparent 60%);
         animation: rotate-border 4s linear infinite; top: -25%; left: -25%;
-    }
-    @keyframes rotate-border { 100% { transform: rotate(360deg); } }
-    .ai-monitor-box { 
+    }}
+    @keyframes rotate-border {{ 100% {{ transform: rotate(360deg); }} }}
+    .ai-monitor-box {{ 
         position: relative; background: rgba(10, 25, 47, 0.85); 
         backdrop-filter: blur(12px); padding: 25px; border-radius: 10px; z-index: 1; 
         border: 1px solid rgba(0, 212, 255, 0.2);
-    }
+    }}
 
     /* 🏆 金色發光新聞卡片 */
-    .news-card {
-        background: rgba(255, 255, 255, 0.98);
-        padding: 22px;
-        border-radius: 15px;
-        margin-bottom: 25px;
-        color: #1a1a1a;
-        border: 2px solid #FFD700;
-        box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
-        transition: all 0.3s ease;
-    }
-    .news-card:hover { 
-        transform: translateY(-5px); 
-        box-shadow: 0 0 30px rgba(255, 215, 0, 0.7); 
-    }
-    .top-rank { color: #B8860B; font-weight: 900; font-size: 1.5em; margin-bottom: 8px; display: block; }
-    .topic-title { font-size: 1.25em; font-weight: 700; color: #001f3f; margin-bottom: 12px; }
+    .news-card {{
+        background: rgba(255, 255, 255, 0.98); padding: 22px;
+        border-radius: 15px; margin-bottom: 25px; color: #1a1a1a;
+        border: 2px solid #FFD700; box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+    }}
+    .top-rank {{ color: #B8860B; font-weight: 900; font-size: 1.5em; margin-bottom: 8px; display: block; }}
+    .topic-title {{ font-size: 1.25em; font-weight: 700; color: #001f3f; margin-bottom: 12px; }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -107,6 +105,9 @@ st.markdown("""
         <div style="color:rgba(0, 212, 255, 0.7); font-size:0.75em; letter-spacing:4px; margin-top:10px;">智能輿情分析系統 // 版本 5.2</div>
     </div>
     """, unsafe_allow_html=True)
+
+# 📅 顯示最近七天的動態日期
+st.markdown(f'<div class="status-bar">LIVE DATA RANGE: {date_range_str}</div>', unsafe_allow_html=True)
 
 # 跑馬燈
 marquee_content = "數據流傳輸中... [穩定] // 企推處媒體行銷組 // 系統監測中... " * 5
@@ -123,12 +124,12 @@ try:
     mask = df_raw.apply(lambda row: row.astype(str).str.contains('find.org.tw', case=False).any(), axis=1)
     df = df_raw[~mask].copy()
     
-    today = datetime.now()
+    # 這裡的 df_7d 已經篩選了最近七天的資料
     df['dt'] = pd.to_datetime(df.iloc[:, 2], errors='coerce')
-    df_7d = df[df['dt'] >= (today - timedelta(days=7))].copy()
+    df_7d = df[df['dt'] >= seven_days_ago].copy()
     
     # ---------------------------------------------------------
-    # 🔥 數據統計與 AI 點評 (移除次數，僅留內容)
+    # 🔥 數據統計與 AI 點評
     # ---------------------------------------------------------
     df_7d['clean_m'] = df_7d.apply(lambda x: urlparse(str(x.iloc[3])).netloc.replace("www.","").split('.')[0].upper(), axis=1)
     grouped = df_7d.groupby(df_7d.iloc[:, 1]).agg({df_7d.columns[3]: list, 'clean_m': list, df_7d.columns[2]: 'max'}).reset_index()
@@ -144,14 +145,14 @@ try:
                     <div style="color:#00d4ff; font-size:0.85em; margin-bottom:10px;">> AI 深度數據分析啟動...</div>
                     <div style="color:#ffffff; line-height:1.6;">
                         本週核心熱點新聞為：<strong>「{top_1_title}」</strong>。<br>
-                        分析摘要：本期監測顯示該議題在各類媒體端展現極高擴散動能，相關討論與資策會核心發展目標具備高度連結，為本週輿情關注之最。
+                        分析摘要：在 <strong>{date_range_str}</strong> 區間內，該議題在各類媒體端展現極高擴散動能，相關討論與資策會核心發展目標具備高度連結。
                     </div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
     # ---------------------------------------------------------
-    # 🔥 排行榜渲染 (移除報導頻次顯示)
+    # 🔥 排行榜渲染
     # ---------------------------------------------------------
     st.markdown("<div style='color:#00d4ff; margin-bottom:15px; font-weight:bold; letter-spacing:1px;'>[ 即時趨勢數據流 ]</div>", unsafe_allow_html=True)
     

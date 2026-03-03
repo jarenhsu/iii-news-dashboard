@@ -31,7 +31,7 @@ st.markdown("""
     .header-title::before, .header-title::after {
         content: "資策會新聞熱度觀測站";
         position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-        background: transparent; /* 背景透明以顯示漸層 */
+        background: transparent;
     }
     .header-title::before {
         color: #00d4ff; left: -3px; text-shadow: 1px 0 #00d4ff;
@@ -63,7 +63,7 @@ st.markdown("""
     }
     .digital-text { color: #00d4ff; font-weight: bold; font-size: 1.1em; letter-spacing: 1px; }
 
-    /* 🚀 雷達旋轉邊框 AI 監測盒 (對比加強) */
+    /* 🚀 雷達旋轉邊框 AI 監測盒 */
     .ai-monitor-wrapper {
         position: relative; padding: 2px; background: transparent;
         border-radius: 12px; overflow: hidden; margin-bottom: 40px;
@@ -80,7 +80,7 @@ st.markdown("""
         border: 1px solid rgba(0, 212, 255, 0.2);
     }
 
-    /* 🏆 金色發光新聞卡片 (在深色漸層下更吸睛) */
+    /* 🏆 金色發光新聞卡片 */
     .news-card {
         background: rgba(255, 255, 255, 0.98);
         padding: 22px;
@@ -104,12 +104,12 @@ st.markdown("""
 st.markdown("""
     <div class="header-container">
         <h1 class="header-title">資策會新聞熱度觀測站</h1>
-        <div style="color:rgba(0, 212, 255, 0.7); font-size:0.75em; letter-spacing:4px; margin-top:10px;">HYBRID CLOUD MONITORING // v5.0</div>
+        <div style="color:rgba(0, 212, 255, 0.7); font-size:0.75em; letter-spacing:4px; margin-top:10px;">智能輿情分析系統 // 版本 5.1</div>
     </div>
     """, unsafe_allow_html=True)
 
-# 數據跑馬燈
-marquee_content = "DATA_STREAM_ACTIVE... [STABLE] // 企推處媒體行銷組 // ANALYZING SYNC... " * 5
+# 跑馬燈
+marquee_content = "數據流傳輸中... [穩定] // 企推處媒體行銷組 // 系統監測中... " * 5
 st.markdown(f'<div class="marquee-container"><marquee scrollamount="7"><span class="digital-text">{marquee_content}</span></marquee></div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------
@@ -127,42 +127,47 @@ try:
     df['dt'] = pd.to_datetime(df.iloc[:, 2], errors='coerce')
     df_7d = df[df['dt'] >= (today - timedelta(days=7))].copy()
     
-    # 🤖 AI 監測區塊 (雷達旋轉)
-    top_3 = df_7d.groupby(df_7d.iloc[:, 1]).size().sort_values(ascending=False).head(3)
-    if not top_3.empty:
+    # ---------------------------------------------------------
+    # 🔥 數據統計與 AI 中文點評 (僅針對 TOP 1)
+    # ---------------------------------------------------------
+    df_7d['clean_m'] = df_7d.apply(lambda x: urlparse(str(x.iloc[3])).netloc.replace("www.","").split('.')[0].upper(), axis=1)
+    grouped = df_7d.groupby(df_7d.iloc[:, 1]).agg({df_7d.columns[3]: list, 'clean_m': list, df_7d.columns[2]: 'max'}).reset_index()
+    grouped['count'] = grouped.iloc[:, 1].apply(len)
+    ranked_df = grouped.sort_values(by='count', ascending=False)
+
+    if not ranked_df.empty:
+        top_1_title = ranked_df.iloc[0, 0]
+        top_1_count = ranked_df.iloc[0]['count']
+        
         st.markdown(f"""
             <div class="ai-monitor-wrapper">
                 <div class="ai-monitor-box">
-                    <div style="color:#00d4ff; font-size:0.85em; margin-bottom:10px;">> CROSS_PLATFORM_TREND_ANALYSIS...</div>
+                    <div style="color:#00d4ff; font-size:0.85em; margin-bottom:10px;">> AI 深度數據分析啟動...</div>
                     <div style="color:#ffffff; line-height:1.6;">
-                        偵測到本週跨媒體核心熱點：『{ ' / '.join(top_3.index.tolist()) }』。<br>
-                        系統評析：報導量在深藍與深橘雙重熱度指標下表現亮眼，相關數位治理議題之媒體黏著度高。
+                        本週最受關注新聞為：<strong>「{top_1_title}」</strong>。<br>
+                        分析報告：該項議題在過去 7 天內共累積了 <strong>{top_1_count}</strong> 次媒體報導，顯示資策會在該領域的動態已成為近期媒體聚焦核心，品牌聲量表現極佳。
                     </div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
     # ---------------------------------------------------------
-    # 🔥 金色發光排行榜 (在漸層底色下極具層次感)
+    # 🔥 排行榜渲染
     # ---------------------------------------------------------
-    df_7d['clean_m'] = df_7d.apply(lambda x: urlparse(str(x.iloc[3])).netloc.replace("www.","").split('.')[0].upper(), axis=1)
-    grouped = df_7d.groupby(df_7d.iloc[:, 1]).agg({df_7d.columns[3]: list, 'clean_m': list, df_7d.columns[2]: 'max'}).reset_index()
-    grouped['count'] = grouped.iloc[:, 1].apply(len)
+    st.markdown("<div style='color:#00d4ff; margin-bottom:15px; font-weight:bold; letter-spacing:1px;'>[ 即時熱度數據流 ]</div>", unsafe_allow_html=True)
     
-    st.markdown("<div style='color:#00d4ff; margin-bottom:15px; font-weight:bold; letter-spacing:1px;'>[ TOP_THERMAL_FEED ]</div>", unsafe_allow_html=True)
-    
-    for i, (_, row) in enumerate(grouped.sort_values(by='count', ascending=False).head(15).iterrows()):
+    for i, (_, row) in enumerate(ranked_df.head(15).iterrows()):
         st.markdown(f"""
             <div class="news-card">
                 <span class="top-rank">TOP {i+1}</span>
                 <div class="topic-title">{row.iloc[0]}</div>
                 <div style="font-size:0.85em; color:#555; font-weight:bold;">
-                    🔥 露出量: {row['count']} ｜ 📅 系統同步: {row.iloc[3]}
+                    🔥 報導露出次數: {row['count']} ｜ 📅 最後同步時間: {row.iloc[3]}
                 </div>
             </div>
             """, unsafe_allow_html=True)
-        with st.expander("DECODE_DETAILS"):
+        with st.expander("查看原始來源數據"):
             for l, m in set(zip(row.iloc[1], row['clean_m'])):
-                st.write(f"**[{m}]** ➔ [LINK]({l})")
+                st.write(f"**[{m}]** ➔ [點擊閱讀原文]({l})")
 except Exception:
-    st.error("📡 DATA_STREAM_INTERRUPTED")
+    st.error("📡 資料同步中，請稍候...")

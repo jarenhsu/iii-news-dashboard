@@ -23,48 +23,58 @@ st.markdown("<div style='text-align:center; padding:20px;'><h1 style='color:#263
 SHEET_ID = "1cwFO20QP4EZrl5PYVOjVgevJS2D1VzCUazb9x0fHEoI"
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
-# 💡 核心功能：強大的媒體名稱補位系統
+# 💡 擴充版媒體名稱補位系統
 def get_clean_media(raw_m, url):
-    # 優先處理已知網域對照表
+    # 台灣主流、財經與科技媒體清單
     mapping = {
+        # 主流媒體
         "yahoo": "Yahoo新聞", "udn": "聯合新聞網", "ltn": "自由時報", "chinatimes": "中時新聞網",
         "ettoday": "ETtoday", "storm": "風傳媒", "cna": "中央社", "setn": "三立新聞",
-        "tvbs": "TVBS", "rti.org.tw": "央廣 RTI", "find.org.tw": "FIND中心", "iii.org.tw": "資策會官網",
-        "technews": "科技新報", "bnext": "數位時代", "money.udn": "經濟日報", "ctee": "工商時報"
+        "tvbs": "TVBS", "ebc": "東森新聞", "ftv": "民視新聞", "mnews": "鏡新聞",
+        # 財經媒體
+        "money.udn": "經濟日報", "ctee": "工商時報", "appledaily": "蘋果新聞網", "anue": "鉅亨網",
+        # 科技與觀點媒體
+        "technews": "科技新報", "bnext": "數位時代", "inside": "Inside 硬塞", "mashdigi": "Mashdigi",
+        "digitimes": "Digitimes", "techtion": "T客邦", "cool3c": "癮科技",
+        # 廣播與特定研究單位
+        "rti.org.tw": "央廣 RTI", "find.org.tw": "FIND中心", "iii.org.tw": "資策會官網",
+        "itri.org.tw": "工研院", "mic.iii.org.tw": "MIC 產經中心"
     }
     
     domain = urlparse(str(url)).netloc.lower()
     for key, name in mapping.items():
         if key in domain: return name
         
-    # 如果試算表有填寫中文名稱且不是預設詞，則使用它
+    # 如果試算表有填寫且不是無效詞，則優先使用
     clean_m = str(raw_m).strip()
-    if len(clean_m) > 1 and not any(x in clean_m for x in ["媒體", "NEWS", "Google", "解析"]):
+    bad_words = ["媒體", "NEWS", "Google", "解析", "提取", "UNKNOWN", "[]"]
+    if len(clean_m) > 1 and not any(x in clean_m.upper() for x in bad_words):
         return clean_m
     
-    # 若以上皆非，顯示乾淨的網域大寫
+    # 若以上皆非，抓取網域並轉大寫 (如 news.rti.org.tw 轉 RTI)
     parts = domain.replace("www.", "").split('.')
-    return parts[0].upper() if parts else "網路媒體"
+    main_domain = parts[-2].upper() if len(parts) >= 2 else "網路媒體"
+    return main_domain
 
 try:
-    # 2. 讀取並強制對位
     df = pd.read_csv(csv_url, on_bad_lines='skip', engine='python').fillna("")
+    # B(1):標題, C(2):日期, D(3):連結, F(5):媒體
     df['title'] = df.iloc[:, 1].astype(str).str.strip()
     df['date'] = df.iloc[:, 2].astype(str).str.strip()
     df['link'] = df.iloc[:, 3].astype(str).str.strip()
     df['raw_media'] = df.iloc[:, 5].astype(str).str.strip()
 
-    # 3. 數據過濾
+    # 過濾
     df = df[df['title'].str.len() > 5]
     df = df[~df['title'].str.contains("解析失敗|提取中|未知標題")]
 
-    # 4. 數據聚合
+    # 聚合
     grouped = df.groupby('title').agg({'link': list, 'raw_media': list, 'date': 'max'}).reset_index()
     grouped['count'] = grouped['link'].apply(len)
     grouped = grouped.sort_values(by='count', ascending=False).head(15)
 
     if grouped.empty:
-        st.info("💡 目前尚無有效新聞標題，請執行 n8n 流程。")
+        st.info("💡 資料同步中...")
     else:
         for i, (_, row) in enumerate(grouped.iterrows()):
             st.markdown(f"""
@@ -82,7 +92,7 @@ try:
                 seen_links = set()
                 for l, rm in zip(row['link'], row['raw_media']):
                     if l not in seen_links:
-                        # 💡 執行補位邏輯解決 [] 或 [NEWS] 問題
+                        # 執行補位邏輯
                         display_name = get_clean_media(rm, l)
                         st.write(f"**[{display_name}]** ➔ [閱讀原文]({l})")
                         seen_links.add(l)

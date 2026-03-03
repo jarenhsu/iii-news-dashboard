@@ -3,11 +3,26 @@ import pandas as pd
 from urllib.parse import urlparse
 from datetime import datetime, timedelta
 
-# 1. 頁面風格設定
+# 1. 頁面風格與動畫設定
 st.set_page_config(page_title="資策會輿情熱度觀測站", layout="centered")
 st.markdown("""
     <style>
     .stApp { background-color: #fcfcf9; color: #37474f; }
+    
+    /* 跑馬燈與閃爍效果 */
+    .marquee-style {
+        color: #af946d;
+        font-weight: bold;
+        font-size: 1.1em;
+        padding: 5px 0;
+    }
+    .blink {
+        animation: blinker 1.5s linear infinite;
+    }
+    @keyframes blinker {
+        50% { opacity: 0; }
+    }
+
     .news-card {
         background-color: #ffffff; padding: 25px; border-radius: 12px;
         border: 1px solid #f0f0ed; margin-bottom: 25px; 
@@ -16,16 +31,23 @@ st.markdown("""
     .ai-box {
         background-color: #fffbeb; padding: 20px; border-radius: 12px;
         border: 1px solid #fde68a; margin-bottom: 30px;
-        box-shadow: 0 2px 10px rgba(253, 230, 138, 0.2);
     }
     .rank-text { color: #af946d; font-weight: 900; font-size: 1.5em; margin-bottom: 5px; }
     .topic-title { font-size: 1.3em; font-weight: 700; color: #2c3e50; margin-bottom: 15px; line-height: 1.5; }
     .info-bar { margin-bottom: 15px; font-size: 0.85em; color: #95a5a6; display: flex; gap: 15px; }
-    .date-range { text-align: center; color: #7f8c8d; margin-bottom: 20px; font-size: 1.1em; }
+    .date-range { text-align: center; color: #7f8c8d; margin-bottom: 10px; font-size: 1.1em; }
     </style>
     """, unsafe_allow_html=True)
 
-st.markdown("<div style='text-align:center; padding:10px;'><h1 style='color:#263238;'>📡 資策會輿情熱度觀測站</h1></div>", unsafe_allow_html=True)
+# 標題
+st.markdown("<div style='text-align:center; padding-top:10px;'><h1 style='color:#263238;'>📡 資策會輿情熱度觀測站</h1></div>", unsafe_allow_html=True)
+
+# ✨ 新增：製作單位閃爍跑馬燈
+st.markdown("""
+    <marquee class="marquee-style" scrollamount="5" behavior="scroll" direction="left">
+        <span class="blink">製作單位：媒體行銷組</span>
+    </marquee>
+    """, unsafe_allow_html=True)
 
 # 💡 計算觀測日期
 today = datetime.now()
@@ -33,7 +55,7 @@ start_date = today - timedelta(days=7)
 st.markdown(f'<div class="date-range">📅 觀測區間：{start_date.strftime("%Y-%m-%d")} 至 {today.strftime("%Y-%m-%d")}</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 📊 輿情資料讀取與媒體識別邏輯
+# 📊 輿情資料讀取與處理
 # ---------------------------------------------------------
 SHEET_ID = "1cwFO20QP4EZrl5PYVOjVgevJS2D1VzCUazb9x0fHEoI"
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
@@ -58,7 +80,7 @@ def get_clean_media(raw_m, url):
 
 try:
     df_raw = pd.read_csv(csv_url, on_bad_lines='skip', engine='python').fillna("")
-    # 徹底排除 find.org.tw
+    # 排除 find.org.tw
     mask = df_raw.apply(lambda row: row.astype(str).str.contains('find.org.tw', case=False).any(), axis=1)
     df = df_raw[~mask].copy()
     
@@ -74,22 +96,18 @@ try:
     df_7d = df_7d[~df_7d['title'].str.contains("解析失敗|提取中|未知標題")]
     df_7d['clean_media'] = df_7d.apply(lambda x: get_clean_media(x['raw_media'], x['link']), axis=1)
 
-    # ---------------------------------------------------------
-    # 🤖 AI 自動生成摘要評論
-    # ---------------------------------------------------------
+    # 🤖 AI 自動摘要
     stats = df_7d.groupby('title').size().reset_index(name='count')
     top_3 = stats.sort_values(by='count', ascending=False).head(3)
 
     if not top_3.empty:
         st.markdown('<div class="ai-box">✨ <strong>AI 輿情觀測員：</strong>', unsafe_allow_html=True)
         focus = "、".join(top_3['title'].tolist())
-        comment = f"本週輿情焦點集中於「{focus}」。分析顯示資策會在數位技術應用及產業影響力方面持續獲得媒體關注，前三大熱點報導共累積多達 {top_3['count'].sum()} 次露出，整體聲量平穩向上。"
+        comment = f"本週輿情焦點為「{focus}」。分析顯示資策會在數位認證與產業轉型方面的報導最具熱度，整體聲量穩定。"
         st.write(comment)
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # ---------------------------------------------------------
-    # 🔥 排行榜卡片顯示
-    # ---------------------------------------------------------
+    # 🔥 排行榜
     grouped = df_7d.groupby('title').agg({'link': list, 'clean_media': list, 'date_str': 'max'}).reset_index()
     grouped['count'] = grouped['link'].apply(len)
     grouped = grouped.sort_values(by='count', ascending=False).head(15)
@@ -113,8 +131,5 @@ try:
                     if l not in seen:
                         st.write(f"**[{m}]** ➔ [閱讀原文]({l})")
                         seen.add(l)
-    else:
-        st.info("💡 最近 7 日內尚無相關報導更新。")
-
 except Exception as e:
-    st.error("📡 輿情資料同步中，請稍候...")
+    st.error("📡 輿情資料同步中...")

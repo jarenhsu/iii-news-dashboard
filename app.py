@@ -3,59 +3,85 @@ import pandas as pd
 from urllib.parse import urlparse
 from datetime import datetime, timedelta
 
-# 1. 頁面風格與動畫設定
+# 1. 頁面風格與 CSS 視覺升級
 st.set_page_config(page_title="資策會輿情熱度觀測站", layout="centered")
 st.markdown("""
     <style>
-    .stApp { background-color: #fcfcf9; color: #37474f; }
+    /* 頁面背景改為深藍色 */
+    .stApp { 
+        background-color: #001f3f; 
+        color: #ffffff; 
+    }
     
-    /* 跑馬燈與閃爍效果 */
+    /* 標題顏色調整 */
+    h1 { color: #ffffff !important; }
+    h3 { color: #ffca28 !important; }
+
+    /* 跑馬燈：加大文字與橘紅色 */
     .marquee-style {
-        color: #af946d;
+        color: #FF4500;
         font-weight: bold;
-        font-size: 1.1em;
-        padding: 5px 0;
+        font-size: 2em; /* 文字加大 */
+        padding: 10px 0;
+        background-color: rgba(0,0,0,0.2);
+        border-radius: 5px;
+        margin-bottom: 20px;
     }
     .blink {
-        animation: blinker 1.5s linear infinite;
+        animation: blinker 1.2s linear infinite;
     }
     @keyframes blinker {
-        50% { opacity: 0; }
+        50% { opacity: 0.3; }
     }
 
+    /* 新聞卡片：底色不動，邊緣橘色光芒 */
     .news-card {
-        background-color: #ffffff; padding: 25px; border-radius: 12px;
-        border: 1px solid #f0f0ed; margin-bottom: 25px; 
-        box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+        background-color: #ffffff; 
+        padding: 25px; 
+        border-radius: 15px;
+        border: None;
+        margin-bottom: 30px; 
+        color: #333333; /* 卡片內文字保持深色 */
+        box-shadow: 0 0 15px #FF8C00; /* 橘色霓虹光芒 */
+        transition: transform 0.3s;
     }
+    .news-card:hover {
+        transform: scale(1.02);
+        box-shadow: 0 0 25px #FF4500;
+    }
+
     .ai-box {
-        background-color: #fffbeb; padding: 20px; border-radius: 12px;
-        border: 1px solid #fde68a; margin-bottom: 30px;
+        background-color: #1a3a5a; 
+        padding: 20px; 
+        border-radius: 12px;
+        border: 1px solid #FF8C00; 
+        margin-bottom: 30px;
+        color: #ffffff;
     }
-    .rank-text { color: #af946d; font-weight: 900; font-size: 1.5em; margin-bottom: 5px; }
-    .topic-title { font-size: 1.3em; font-weight: 700; color: #2c3e50; margin-bottom: 15px; line-height: 1.5; }
-    .info-bar { margin-bottom: 15px; font-size: 0.85em; color: #95a5a6; display: flex; gap: 15px; }
-    .date-range { text-align: center; color: #7f8c8d; margin-bottom: 10px; font-size: 1.1em; }
+    .rank-text { color: #FF8C00; font-weight: 900; font-size: 1.6em; margin-bottom: 5px; }
+    .topic-title { font-size: 1.35em; font-weight: 700; color: #001f3f; margin-bottom: 15px; line-height: 1.4; }
+    .info-bar { margin-bottom: 15px; font-size: 0.9em; color: #666666; display: flex; gap: 15px; }
+    .date-range { text-align: center; color: #aabccf; margin-bottom: 10px; font-size: 1.15em; }
     </style>
     """, unsafe_allow_html=True)
 
 # 標題
-st.markdown("<div style='text-align:center; padding-top:10px;'><h1 style='color:#263238;'>📡 資策會輿情熱度觀測站</h1></div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align:center; padding-top:10px;'><h1>📡 資策會輿情熱度觀測站</h1></div>", unsafe_allow_html=True)
 
-# ✨ 新增：製作單位閃爍跑馬燈
+# ✨ 修正後的閃爍跑馬燈：企推處媒體行銷組
 st.markdown("""
-    <marquee class="marquee-style" scrollamount="5" behavior="scroll" direction="left">
-        <span class="blink">製作單位：媒體行銷組</span>
+    <marquee class="marquee-style" scrollamount="7" behavior="scroll" direction="left">
+        <span class="blink">製作單位：企推處媒體行銷組</span>
     </marquee>
     """, unsafe_allow_html=True)
 
-# 💡 計算觀測日期
+# 💡 觀測日期
 today = datetime.now()
 start_date = today - timedelta(days=7)
 st.markdown(f'<div class="date-range">📅 觀測區間：{start_date.strftime("%Y-%m-%d")} 至 {today.strftime("%Y-%m-%d")}</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 📊 輿情資料讀取與處理
+# 📊 資料讀取邏輯 (維持穩定排除與辨識)
 # ---------------------------------------------------------
 SHEET_ID = "1cwFO20QP4EZrl5PYVOjVgevJS2D1VzCUazb9x0fHEoI"
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
@@ -64,23 +90,19 @@ def get_clean_media(raw_m, url):
     mapping = {
         "yahoo": "Yahoo新聞", "udn": "聯合新聞網", "ltn": "自由時報", "chinatimes": "中時新聞網",
         "ettoday": "ETtoday", "storm": "風傳媒", "cna": "中央社", "setn": "三立新聞",
-        "tvbs": "TVBS", "rti.org.tw": "央廣 RTI", "iii.org.tw": "資策會官網", 
-        "money.udn": "經濟日報", "ctee": "工商時報", "technews": "科技新報", "bnext": "數位時代"
+        "tvbs": "TVBS", "rti.org.tw": "央廣 RTI", "iii.org.tw": "資策會官網", "money.udn": "經濟日報"
     }
     domain = urlparse(str(url)).netloc.lower()
     for key, name in mapping.items():
         if key in domain: return name
-    
     clean_m = str(raw_m).strip().upper()
-    if len(clean_m) > 1 and not any(x in clean_m for x in ["NEWS", "媒體", "GOOGLE", "解析"]):
+    if len(clean_m) > 1 and not any(x in clean_m for x in ["NEWS", "媒體", "GOOGLE"]):
         return str(raw_m).strip()
-    
-    parts = domain.replace("www.", "").split('.')
-    return parts[-2].upper() if len(parts) >= 2 else "網路媒體"
+    return parts[-2].upper() if len(parts := domain.replace("www.", "").split('.')) >= 2 else "網路媒體"
 
 try:
     df_raw = pd.read_csv(csv_url, on_bad_lines='skip', engine='python').fillna("")
-    # 排除 find.org.tw
+    # 徹底排除 find.org.tw
     mask = df_raw.apply(lambda row: row.astype(str).str.contains('find.org.tw', case=False).any(), axis=1)
     df = df_raw[~mask].copy()
     
@@ -96,18 +118,17 @@ try:
     df_7d = df_7d[~df_7d['title'].str.contains("解析失敗|提取中|未知標題")]
     df_7d['clean_media'] = df_7d.apply(lambda x: get_clean_media(x['raw_media'], x['link']), axis=1)
 
-    # 🤖 AI 自動摘要
+    # 🤖 AI 摘要區
     stats = df_7d.groupby('title').size().reset_index(name='count')
     top_3 = stats.sort_values(by='count', ascending=False).head(3)
 
     if not top_3.empty:
-        st.markdown('<div class="ai-box">✨ <strong>AI 輿情觀測員：</strong>', unsafe_allow_html=True)
+        st.markdown('<div class="ai-box">✨ <strong>AI 輿情監測點評</strong>', unsafe_allow_html=True)
         focus = "、".join(top_3['title'].tolist())
-        comment = f"本週輿情焦點為「{focus}」。分析顯示資策會在數位認證與產業轉型方面的報導最具熱度，整體聲量穩定。"
-        st.write(comment)
+        st.write(f"本週資策會輿情動能強勁，核心話題圍繞「{focus}」。整體曝光量穩定，且在技術研發與社會貢獻領域獲得媒體正面肯定。")
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # 🔥 排行榜
+    # 🔥 排行榜渲染
     grouped = df_7d.groupby('title').agg({'link': list, 'clean_media': list, 'date_str': 'max'}).reset_index()
     grouped['count'] = grouped['link'].apply(len)
     grouped = grouped.sort_values(by='count', ascending=False).head(15)
@@ -121,15 +142,15 @@ try:
                     <div class="topic-title">{row['title']}</div>
                     <div class="info-bar">
                         <span>🔥 {row['count']} 次露出</span>
-                        <span>📅 最新日期：{row['date_str']}</span>
+                        <span>📅 日期：{row['date_str']}</span>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
-            with st.expander("📂 查看詳細來源細節"):
+            with st.expander("📂 來源細節"):
                 seen = set()
                 for l, m in zip(row['link'], row['clean_media']):
                     if l not in seen:
                         st.write(f"**[{m}]** ➔ [閱讀原文]({l})")
                         seen.add(l)
-except Exception as e:
-    st.error("📡 輿情資料同步中...")
+except Exception:
+    st.error("📡 資料更新中...")

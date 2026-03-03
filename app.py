@@ -3,7 +3,7 @@ import pandas as pd
 from urllib.parse import urlparse
 from datetime import datetime, timedelta
 
-# 1. 頁面風格、旋轉霓虹邊框與數位終端機設定
+# 1. 頁面風格、數位方塊跑馬燈與科技感 UI 設定
 st.set_page_config(page_title="資策會新聞熱度觀測站", layout="centered")
 st.markdown("""
     <style>
@@ -11,62 +11,56 @@ st.markdown("""
     .stApp { background-color: #000c1d; color: #ffffff; font-family: 'Consolas', 'Monaco', monospace; }
     h1 { color: #00d4ff !important; text-align: center; font-weight: 800; letter-spacing: 4px; }
 
-    /* 💡 數位跑馬燈 (無發光) */
+    /* 💡 數位方塊跑馬燈 (取代發光效果) */
     .marquee-container {
         background: rgba(0, 212, 255, 0.05);
         border-top: 1px solid #00d4ff;
         border-bottom: 1px solid #00d4ff;
         padding: 10px 0;
         margin-bottom: 30px;
-    }
-    .digital-text { color: #00d4ff; font-weight: bold; font-size: 1.1em; letter-spacing: 2px; }
-
-    /* 🚀 旋轉霓虹邊框 AI 監測區塊 */
-    .ai-monitor-wrapper {
         position: relative;
-        padding: 3px; /* 邊框寬度 */
-        background: transparent;
-        border-radius: 16px;
-        overflow: hidden;
-        margin-bottom: 40px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    }
-
-    /* 💡 CSS conic-gradient 旋轉雷達邊框邏輯 */
-    .ai-monitor-wrapper::before {
-        content: "";
-        position: absolute;
-        width: 150%; height: 150%;
-        background: conic-gradient(#00d4ff, #ff4500, transparent 40%);
-        animation: rotate-border 4s linear infinite;
-    }
-    @keyframes rotate-border {
-        100% { transform: rotate(360deg); }
-    }
-
-    .ai-monitor-box {
-        position: relative;
-        width: 100%;
-        background: #001226; /* 深色內盒 */
-        padding: 25px;
-        border-radius: 14px;
-        z-index: 1;
     }
     
-    .ai-header {
-        color: #ff4500; font-size: 0.85em; font-weight: bold;
-        border-bottom: 1px solid rgba(255, 69, 0, 0.3);
-        margin-bottom: 15px; display: flex; justify-content: space-between;
+    /* 四個角落的裝飾方塊 */
+    .marquee-container::before { content: "◢"; position: absolute; top: 0; left: 0; color: #00d4ff; font-size: 8px; }
+    .marquee-container::after { content: "◣"; position: absolute; bottom: 0; right: 0; color: #00d4ff; font-size: 8px; }
+
+    .digital-text {
+        color: #00d4ff; 
+        font-weight: bold;
+        font-size: 1.1em;
+        letter-spacing: 2px;
+        /* 移除 text-shadow 發光 */
     }
 
-    /* 新聞卡片 */
+    /* 🚀 AI 監測區塊：掃描線特效 */
+    .ai-monitor-box {
+        background: rgba(10, 25, 47, 0.9);
+        padding: 25px;
+        border-radius: 5px;
+        border: 1px solid #00d4ff;
+        margin-bottom: 40px;
+        box-shadow: inset 0 0 15px rgba(0, 212, 255, 0.2);
+    }
+    .ai-header {
+        color: #ff4500;
+        font-size: 0.8em;
+        font-weight: bold;
+        border-bottom: 1px solid rgba(255, 69, 0, 0.3);
+        margin-bottom: 12px;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    /* 新聞卡片：簡約科技感 */
     .news-card {
-        background-color: #ffffff; padding: 25px; border-radius: 4px;
-        margin-bottom: 25px; color: #1a1a1a;
+        background-color: #ffffff; 
+        padding: 25px; 
+        border-radius: 4px;
+        margin-bottom: 25px; 
+        color: #1a1a1a;
         border-right: 4px solid #00d4ff;
-        box-shadow: 4px 4px 0px #00d4ff;
+        box-shadow: 4px 4px 0px #00d4ff; /* 硬邊陰影效果 */
     }
     .rank-num { font-size: 1.2em; font-weight: 800; color: #00d4ff; border: 1px solid #00d4ff; padding: 2px 8px; margin-right: 10px; }
     .topic-title { font-size: 1.25em; font-weight: 700; color: #001f3f; margin-top: 10px; }
@@ -75,9 +69,20 @@ st.markdown("""
 
 st.markdown("<h1>📡 資策會新聞熱度觀測站</h1>", unsafe_allow_html=True)
 
-# 跑馬燈
-marquee_content = "SYSTEM_STATUS: MONITORING // 企推處媒體行銷組　&nbsp;&nbsp;　" * 8
-st.markdown(f'<div class="marquee-container"><marquee scrollamount="5"><span class="digital-text">{marquee_content}</span></marquee></div>', unsafe_allow_html=True)
+# ✨ 數位方塊跑馬燈 (無發光，穩定捲動)
+marquee_content = "DATA TRANSMISSION // 企推處媒體行銷組　&nbsp;&nbsp;　" * 8
+st.markdown(f"""
+    <div class="marquee-container">
+        <marquee scrollamount="5" behavior="scroll" direction="left">
+            <span class="digital-text">{marquee_content}</span>
+        </marquee>
+    </div>
+    """, unsafe_allow_html=True)
+
+# 觀測日期與狀態
+today = datetime.now()
+start_date = today - timedelta(days=7)
+st.markdown(f'<div style="text-align:center; color:#00d4ff; margin-bottom:25px; font-size:0.8em; font-weight:bold;">[ RANGE: {start_date.strftime("%Y-%m-%d")} / {today.strftime("%Y-%m-%d")} ]</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------
 # 📊 資料處理
@@ -91,25 +96,22 @@ try:
     mask = df_raw.apply(lambda row: row.astype(str).str.contains('find.org.tw', case=False).any(), axis=1)
     df = df_raw[~mask].copy()
     
-    today = datetime.now()
     df['dt'] = pd.to_datetime(df.iloc[:, 2], errors='coerce')
     df_7d = df[df['dt'] >= (today - timedelta(days=7))].copy()
     
-    # 🤖 AI 監測區塊 (旋轉邊框樣式)
+    # 🤖 AI 點評 (數位監測樣式)
     top_3 = df_7d.groupby(df_7d.iloc[:, 1]).size().sort_values(ascending=False).head(3)
     if not top_3.empty:
         focus_list = top_3.index.tolist()
         st.markdown(f"""
-            <div class="ai-monitor-wrapper">
-                <div class="ai-monitor-box">
-                    <div class="ai-header">
-                        <span>> RADAR_SCAN_ANALYSIS</span>
-                        <span style="color:#ff4500;">LIVE FEED ●</span>
-                    </div>
-                    <div style="color:#00d4ff; font-size:1.05em; line-height:1.6;">
-                        偵測到本週核心議題：『{ ' / '.join(focus_list) }』。<br>
-                        系統分析：資策會新聞聲量分佈健全，數位轉型領域之曝光具備高影響力。
-                    </div>
+            <div class="ai-monitor-box">
+                <div class="ai-header">
+                    <span>> EXECUTE_ANALYSIS_CMD</span>
+                    <span style="letter-spacing:1px;">SCANNING... OK</span>
+                </div>
+                <div style="color:#00d4ff; font-size:1em; line-height:1.6;">
+                    核心關鍵議題：『{ ' / '.join(focus_list) }』。<br>
+                    分析結果：資策會相關動態在數位轉型領域之聲量佔比顯著，媒體曝光結構健全。
                 </div>
             </div>
             """, unsafe_allow_html=True)

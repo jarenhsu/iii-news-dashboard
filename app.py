@@ -3,42 +3,37 @@ import pandas as pd
 from urllib.parse import urlparse
 from datetime import datetime, timedelta
 
-# 1. 頁面風格、閃爍發光與無縫跑馬燈設定
+# 1. 頁面風格與穩定版跑馬燈設定
 st.set_page_config(page_title="資策會輿情熱度觀測站", layout="centered")
 st.markdown("""
     <style>
+    /* 頁面深藍色背景 */
     .stApp { background-color: #001f3f; color: #ffffff; }
     h1 { color: #ffffff !important; text-align: center; }
 
-    /* 💡 無縫循環跑馬燈與霓虹發光效果 */
-    .marquee-wrapper {
-        overflow: hidden;
-        white-space: nowrap;
-        background: rgba(0, 0, 0, 0.3);
-        padding: 10px 0;
+    /* 💡 霓虹發光跑馬燈設定 */
+    .marquee-container {
+        background: rgba(0, 0, 0, 0.4);
+        border-top: 2px solid #FF4500;
+        border-bottom: 2px solid #FF4500;
+        padding: 5px 0;
         margin-bottom: 25px;
-        border-top: 1px solid #FF4500;
-        border-bottom: 1px solid #FF4500;
     }
-
-    .marquee-content {
-        display: inline-block;
-        padding-left: 100%;
-        animation: marquee 15s linear infinite;
+    
+    .neon-text {
         color: #FF4500;
         font-weight: bold;
-        font-size: 1.5em; /* 文字小一號 */
+        font-size: 1.5em; /* 文字大小調小一號 */
         text-shadow: 0 0 10px #FF4500, 0 0 20px #FF8C00; /* 霓虹發亮效果 */
+        font-family: 'Microsoft JhengHei', sans-serif;
     }
 
     /* 閃爍動畫 */
-    .blink { animation: blinker 1.5s linear infinite; }
-    @keyframes blinker { 50% { opacity: 0.5; } }
-
-    /* 無縫移動動畫 */
-    @keyframes marquee {
-        0% { transform: translate(0, 0); }
-        100% { transform: translate(-100%, 0); }
+    .blink {
+        animation: blinker 1.5s linear infinite;
+    }
+    @keyframes blinker {
+        50% { opacity: 0.6; }
     }
 
     /* 新聞卡片效果 */
@@ -59,14 +54,14 @@ st.markdown("""
 
 st.markdown("<h1>📡 資策會輿情熱度觀測站</h1>", unsafe_allow_html=True)
 
-# ✨ 無縫重複、閃爍發光的跑馬燈
-# 透過重複文字內容來確保視覺上的不間斷感
-marquee_text = "企推處媒體行銷組　　　　　" * 5 
+# ✨ 穩定版：無縫重複、閃爍發光的跑馬燈
+# 使用 marquee 確保在 Streamlit 環境下也能穩定捲動
+marquee_content = "製作單位：企推處媒體行銷組　&nbsp;&nbsp;　" * 6
 st.markdown(f"""
-    <div class="marquee-wrapper">
-        <div class="marquee-content blink">
-            製作單位：{marquee_text}
-        </div>
+    <div class="marquee-container">
+        <marquee scrollamount="8" behavior="scroll" direction="left">
+            <span class="neon-text blink">{marquee_content}</span>
+        </marquee>
     </div>
     """, unsafe_allow_html=True)
 
@@ -90,8 +85,9 @@ def get_clean_media(raw_m, url):
 
 try:
     df_raw = pd.read_csv(csv_url, on_bad_lines='skip', engine='python').fillna("")
-    # 全局排除 find.org.tw
-    df = df_raw[~df_raw.apply(lambda r: r.astype(str).str.contains('find.org.tw', case=False).any(), axis=1)].copy()
+    # 徹底過濾 find.org.tw
+    mask = df_raw.apply(lambda row: row.astype(str).str.contains('find.org.tw', case=False).any(), axis=1)
+    df = df_raw[~mask].copy()
     
     df['dt'] = pd.to_datetime(df.iloc[:, 2], errors='coerce')
     df_7d = df[df['dt'] >= (today - timedelta(days=7))].copy()
@@ -100,7 +96,7 @@ try:
     top_3 = df_7d.groupby(df_7d.iloc[:, 1]).size().sort_values(ascending=False).head(3)
     if not top_3.empty:
         st.markdown('<div class="ai-box">✨ <strong>AI 輿情監測點評</strong>', unsafe_allow_html=True)
-        st.write(f"本週核心話題集中於「{ '、'.join(top_3.index.tolist()) }」。資策會在數位領域的聲量穩健發展。")
+        st.write(f"本週核心話題集中於「{ '、'.join(top_3.index.tolist()) }」。")
         st.markdown('</div>', unsafe_allow_html=True)
 
     # 排行榜

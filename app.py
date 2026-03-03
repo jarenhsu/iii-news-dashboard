@@ -24,38 +24,41 @@ st.markdown("<div style='text-align:center; padding:20px;'><h1 style='color:#263
 SHEET_ID = "1cwFO20QP4EZrl5PYVOjVgevJS2D1VzCUazb9x0fHEoI"
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
-# 💡 媒體辨識系統
+# 💡 媒體名稱辨識系統
 def get_clean_media(raw_m, url):
     mapping = {
         "yahoo": "Yahoo新聞", "udn": "聯合新聞網", "ltn": "自由時報", "chinatimes": "中時新聞網",
         "ettoday": "ETtoday", "storm": "風傳媒", "cna": "中央社", "setn": "三立新聞",
-        "tvbs": "TVBS", "rti.org.tw": "央廣 RTI", "find.org.tw": "FIND中心", "iii.org.tw": "資策會官網"
+        "tvbs": "TVBS", "rti.org.tw": "央廣 RTI", "iii.org.tw": "資策會官網", "money.udn": "經濟日報"
     }
     domain = urlparse(str(url)).netloc.lower()
     for key, name in mapping.items():
         if key in domain: return name
+    clean_m = str(raw_m).strip()
+    if len(clean_m) > 1 and not any(x in clean_m.upper() for x in ["媒體", "NEWS", "GOOGLE", "解析"]):
+        return clean_m
     return "網路媒體"
 
 try:
     # 2. 讀取資料
     df = pd.read_csv(csv_url, on_bad_lines='skip', engine='python').fillna("")
 
-    # 💡 關鍵：在任何處理之前，徹底移除 find.org.tw 的所有行
-    # 我們針對「新聞連結」這一直欄（索引為 3）進行過濾
-    df = df[~df.iloc[:, 3].astype(str).str.contains("find.org.tw", na=False)]
+    # 💡 終極過濾：掃描所有欄位，只要內容包含 find.org.tw 就整列刪除
+    mask = df.apply(lambda row: row.astype(str).str.contains('find.org.tw').any(), axis=1)
+    df = df[~mask]
 
-    # 3. 欄位對位
+    # 3. 欄位對位 (B:1, C:2, D:3, F:5)
     df['title'] = df.iloc[:, 1].astype(str).str.strip()
     df['date'] = df.iloc[:, 2].astype(str).str.strip()
     df['link'] = df.iloc[:, 3].astype(str).str.strip()
     df['raw_media'] = df.iloc[:, 5].astype(str).str.strip()
 
-    # 4. 數據過濾
+    # 4. 數據清洗
     df = df[df['title'].str.len() > 5]
     df = df[~df['title'].str.contains("解析失敗|提取中|未知標題")]
     df['clean_media'] = df.apply(lambda x: get_clean_media(x['raw_media'], x['link']), axis=1)
 
-    # 📊 5. 媒體分佈圖 (此時 find.org.tw 已不計入)
+    # 📊 5. 媒體分佈圖
     st.markdown("### 📊 外部媒體曝光分佈")
     media_counts = df['clean_media'].value_counts().reset_index()
     media_counts.columns = ['媒體名稱', '報導次數']
@@ -65,8 +68,7 @@ try:
 
     st.markdown("---")
 
-    # 6. 重新分組統計熱度
-    # 因為 find.org.tw 已經被移除，所以原本的 TOP 1 就會自動消失
+    # 6. 重新分組統計
     grouped = df.groupby('title').agg({'link': list, 'clean_media': list, 'date': 'max'}).reset_index()
     grouped['count'] = grouped['link'].apply(len)
     grouped = grouped.sort_values(by='count', ascending=False).head(15)

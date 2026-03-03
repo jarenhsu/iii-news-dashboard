@@ -67,18 +67,25 @@ st.markdown("""
     .ai-monitor-wrapper {
         position: relative; padding: 2px; background: transparent;
         border-radius: 12px; overflow: hidden; margin-bottom: 40px;
+        display: flex; justify-content: center; align-items: center;
     }
     .ai-monitor-wrapper::before {
-        content: ""; position: absolute; width: 150%; height: 150%;
-        background: conic-gradient(#00d4ff, #FFA500, transparent 60%);
-        animation: rotate-border 4s linear infinite; top: -25%; left: -25%;
+        content: ""; position: absolute; width: 200%; height: 200%;
+        background: conic-gradient(#00d4ff, #FFA500, #ff00ff, #00d4ff);
+        animation: rotate-border 6s linear infinite; top: -50%; left: -50%;
     }
     @keyframes rotate-border { 100% { transform: rotate(360deg); } }
+
     .ai-monitor-box { 
-        position: relative; background: rgba(10, 25, 47, 0.85); 
-        backdrop-filter: blur(12px); padding: 25px; border-radius: 10px; z-index: 1; 
-        border: 1px solid rgba(0, 212, 255, 0.2);
+        position: relative; width: 100%; background: #001226; 
+        padding: 25px; border-radius: 10px; z-index: 2; 
+        box-shadow: inset 0 0 20px rgba(0, 212, 255, 0.2);
     }
+    
+    /* 數位日誌風格排版 */
+    .log-stream { font-size: 0.85em; line-height: 1.8; color: #00d4ff; text-align: justify; }
+    .log-id { color: #FF8C00; font-weight: bold; margin-right: 4px; }
+    .log-tag { color: #ffffff; background: rgba(0, 212, 255, 0.2); padding: 0 4px; border-radius: 2px; margin-right: 5px; }
 
     /* 🏆 金色發光新聞卡片 */
     .news-card {
@@ -104,7 +111,7 @@ st.markdown("""
 st.markdown("""
     <div class="header-container">
         <h1 class="header-title">資策會新聞熱度觀測站</h1>
-        <div style="color:rgba(0, 212, 255, 0.7); font-size:0.75em; letter-spacing:4px; margin-top:10px;">智能輿情分析系統 // 版本 5.2</div>
+        <div style="color:rgba(0, 212, 255, 0.7); font-size:0.75em; letter-spacing:4px; margin-top:10px;">智能輿情分析系統 // 版本 5.5</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -127,31 +134,31 @@ try:
     df['dt'] = pd.to_datetime(df.iloc[:, 2], errors='coerce')
     df_7d = df[df['dt'] >= (today - timedelta(days=7))].copy()
     
-    # ---------------------------------------------------------
-    # 🔥 數據統計與 AI 點評 (移除次數，僅留內容)
-    # ---------------------------------------------------------
     df_7d['clean_m'] = df_7d.apply(lambda x: urlparse(str(x.iloc[3])).netloc.replace("www.","").split('.')[0].upper(), axis=1)
     grouped = df_7d.groupby(df_7d.iloc[:, 1]).agg({df_7d.columns[3]: list, 'clean_m': list, df_7d.columns[2]: 'max'}).reset_index()
     grouped['count'] = grouped.iloc[:, 1].apply(len)
     ranked_df = grouped.sort_values(by='count', ascending=False)
 
+    # 🤖 AI 監測日誌升級版
     if not ranked_df.empty:
-        top_1_title = ranked_df.iloc[0, 0]
+        st.markdown('<div class="ai-monitor-wrapper"><div class="ai-monitor-box">', unsafe_allow_html=True)
+        st.markdown('<div style="color:#FF8C00; font-weight:bold; margin-bottom:15px; font-size:0.9em;">[ ⚡ SYSTEM_AI_SCAN: 輿情熱度全量監測 ]</div>', unsafe_allow_html=True)
         
-        st.markdown(f"""
-            <div class="ai-monitor-wrapper">
-                <div class="ai-monitor-box">
-                    <div style="color:#00d4ff; font-size:0.85em; margin-bottom:10px;">> AI 深度數據分析啟動...</div>
-                    <div style="color:#ffffff; line-height:1.6;">
-                        本週核心熱點新聞為：<strong>「{top_1_title}」</strong>。<br>
-                        分析摘要：本期監測顯示該議題在各類媒體端展現極高擴散動能，相關討論與資策會核心發展目標具備高度連結，為本週輿情關注之最。
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+        # 生成日誌流文字
+        log_html = '<div class="log-stream">'
+        for i, (_, row) in enumerate(ranked_df.head(15).iterrows()):
+            tag = "HOT" if i == 0 else "STABLE" if i < 5 else "SCAN"
+            short_title = row.iloc[0][:15] + "..." if len(row.iloc[0]) > 15 else row.iloc[0]
+            log_html += f'<span class="log-id">[{i+1:02}]</span> <span class="log-tag">{tag}</span> {short_title} // '
+        
+        log_html += '<br><br><span style="color:#ffffff; opacity:0.8;">> 系統分析報告：本期觀測之 TOP 15 議題在各類媒體端均展現穩定擴散動能，數據同步完成。</span>'
+        log_html += '</div>'
+        
+        st.markdown(log_html, unsafe_allow_html=True)
+        st.markdown('</div></div>', unsafe_allow_html=True)
 
     # ---------------------------------------------------------
-    # 🔥 排行榜渲染 (移除報導頻次顯示)
+    # 🔥 排行榜渲染
     # ---------------------------------------------------------
     st.markdown("<div style='color:#00d4ff; margin-bottom:15px; font-weight:bold; letter-spacing:1px;'>[ 即時趨勢數據流 ]</div>", unsafe_allow_html=True)
     

@@ -24,46 +24,52 @@ st.markdown("<div style='text-align:center; padding:20px;'><h1 style='color:#263
 SHEET_ID = "1cwFO20QP4EZrl5PYVOjVgevJS2D1VzCUazb9x0fHEoI"
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
-# 💡 核心修正：媒體名稱辨識與補位系統
+# 💡 媒體名稱辨識與補位系統：解決 [NEWS] 問題
 def get_clean_media(raw_m, url):
-    # 第一步：檢查試算表 F 欄是否有填寫中文名稱
-    clean_m = str(raw_m).strip()
-    bad_words = ["媒體", "NEWS", "GOOGLE", "解析", "提取", "UNKNOWN", "[]", "網路媒體"]
-    if len(clean_m) > 1 and not any(x in clean_m.upper() for x in bad_words):
-        return clean_m
-
-    # 第二步：如果 F 欄無效，則嘗試從網域對照表補齊
+    # 建立網域對照表
     mapping = {
         "yahoo": "Yahoo新聞", "udn": "聯合新聞網", "ltn": "自由時報", "chinatimes": "中時新聞網",
         "ettoday": "ETtoday", "storm": "風傳媒", "cna": "中央社", "setn": "三立新聞",
-        "tvbs": "TVBS", "rti.org.tw": "央廣 RTI", "iii.org.tw": "資策會官網", "money.udn": "經濟日報"
+        "tvbs": "TVBS", "rti.org.tw": "央廣 RTI", "iii.org.tw": "資策會官網", 
+        "money.udn": "經濟日報", "ctee": "工商時報", "technews": "科技新報", "bnext": "數位時代"
     }
+    
     domain = urlparse(str(url)).netloc.lower()
+    
+    # 優先從網域判斷名稱
     for key, name in mapping.items():
         if key in domain: return name
-        
-    # 第三步：最後保險機制，顯示網域大寫
+
+    # 如果試算表 F 欄位有值且不是無效詞，則使用它
+    clean_m = str(raw_m).strip().upper()
+    bad_words = ["NEWS", "媒體", "GOOGLE", "解析", "提取", "UNKNOWN", "[]", "網路媒體"]
+    
+    if len(clean_m) > 1 and not any(x in clean_m for x in bad_words):
+        return str(raw_m).strip()
+    
+    # 若以上皆非，顯示網域大寫 (如 NEWS.RTI.ORG.TW -> RTI)
     parts = domain.replace("www.", "").split('.')
-    return parts[0].upper() if parts else "網路媒體"
+    if len(parts) >= 2:
+        return parts[-2].upper() if parts[-2] != "COM" else parts[-3].upper()
+    return "網路媒體"
 
 try:
-    # 2. 讀取與排除 find.org.tw
+    # 2. 讀取並排除 find.org.tw
     df_raw = pd.read_csv(csv_url, on_bad_lines='skip', engine='python').fillna("")
     mask = df_raw.apply(lambda row: row.astype(str).str.contains('find.org.tw', case=False).any(), axis=1)
     df = df_raw[~mask].copy()
 
-    # 3. 欄位精準對位
-    # B(1):標題, C(2):日期, D(3):連結, F(5):媒體
+    # 3. 欄位對位
     df['title'] = df.iloc[:, 1].astype(str).str.strip()
     df['date'] = df.iloc[:, 2].astype(str).str.strip()
     df['link'] = df.iloc[:, 3].astype(str).str.strip()
-    df['raw_media'] = df.iloc[:, 5].astype(str).str.strip() # 強制讀取第 6 欄媒體中文名
+    df['raw_media'] = df.iloc[:, 5].astype(str).str.strip()
 
     # 4. 數據清洗
     df = df[df['title'].str.len() > 5]
     df = df[~df['title'].str.contains("解析失敗|提取中|未知標題")]
     
-    # 💡 預先將每一列的媒體名稱處理好
+    # 預先處理每一筆的媒體名稱
     df['clean_media'] = df.apply(lambda x: get_clean_media(x['raw_media'], x['link']), axis=1)
 
     # 📊 5. 媒體分佈圖
@@ -97,12 +103,11 @@ try:
                 </div>
                 """, unsafe_allow_html=True)
             with st.expander("📂 查看詳細來源細節"):
-                seen = set()
-                # 💡 這裡直接使用處理好的 clean_media 列表
+                seen_links = set()
                 for l, m in zip(row['link'], row['clean_media']):
-                    if l not in seen:
+                    if l not in seen_links:
                         st.write(f"**[{m}]** ➔ [閱讀原文]({l})")
-                        seen.add(l)
+                        seen_links.add(l)
 
 except Exception as e:
     st.error(f"系統連線中...")

@@ -24,14 +24,12 @@ st.markdown("<div style='text-align:center; padding:20px;'><h1 style='color:#263
 SHEET_ID = "1cwFO20QP4EZrl5PYVOjVgevJS2D1VzCUazb9x0fHEoI"
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
-# 媒體名稱辨識與補位系統
+# 💡 媒體名稱辨識與補位系統
 def get_clean_media(raw_m, url):
     mapping = {
         "yahoo": "Yahoo新聞", "udn": "聯合新聞網", "ltn": "自由時報", "chinatimes": "中時新聞網",
         "ettoday": "ETtoday", "storm": "風傳媒", "cna": "中央社", "setn": "三立新聞",
-        "tvbs": "TVBS", "ebc": "東森新聞", "ftv": "民視新聞", "mnews": "鏡新聞",
-        "money.udn": "經濟日報", "ctee": "工商時報", "technews": "科技新報", "bnext": "數位時代",
-        "rti.org.tw": "央廣 RTI", "iii.org.tw": "資策會官網"
+        "tvbs": "TVBS", "rti.org.tw": "央廣 RTI", "iii.org.tw": "資策會官網", "money.udn": "經濟日報"
     }
     domain = urlparse(str(url)).netloc.lower()
     for key, name in mapping.items():
@@ -43,25 +41,26 @@ def get_clean_media(raw_m, url):
     return parts[0].upper() if parts else "網路媒體"
 
 try:
-    # 2. 讀取並清洗資料
+    # 2. 讀取與「暴力排除」
     df = pd.read_csv(csv_url, on_bad_lines='skip', engine='python').fillna("")
+    
+    # 💡 排除所有來自 find.org.tw 的資料 (確保其不佔據第一名)
+    df = df[~df.iloc[:, 3].astype(str).str.contains("find.org.tw", na=False)]
+
     df['title'] = df.iloc[:, 1].astype(str).str.strip()
     df['date'] = df.iloc[:, 2].astype(str).str.strip()
     df['link'] = df.iloc[:, 3].astype(str).str.strip()
     df['raw_media'] = df.iloc[:, 5].astype(str).str.strip()
 
-    # 💡 排除特定網站資料：排除 find.org.tw
-    df = df[~df['link'].str.contains("find.org.tw", na=False)]
-
-    # 排除解析失敗的無效資料
+    # 排除無效標題
     df = df[df['title'].str.len() > 5]
     df = df[~df['title'].str.contains("解析失敗|提取中|未知標題")]
     
-    # 媒體辨識
+    # 應用媒體辨識
     df['clean_media'] = df.apply(lambda x: get_clean_media(x['raw_media'], x['link']), axis=1)
 
-    # 📊 3. 媒體分佈圖表
-    st.markdown("### 📊 媒體曝光分佈 (已排除內部網站)")
+    # 📊 3. 媒體分佈圖 (排除 find.org.tw 後的數據)
+    st.markdown("### 📊 外部媒體曝光分佈")
     media_counts = df['clean_media'].value_counts().reset_index()
     media_counts.columns = ['媒體名稱', '報導次數']
     top_media = media_counts.head(10)
@@ -76,7 +75,7 @@ try:
     st.altair_chart(chart, use_container_width=True)
     st.markdown("---")
 
-    # 4. 熱門輿情排行榜
+    # 4. 熱門輿情排行榜 (真正的外部媒體排名)
     grouped = df.groupby('title').agg({'link': list, 'clean_media': list, 'date': 'max'}).reset_index()
     grouped['count'] = grouped['link'].apply(len)
     grouped = grouped.sort_values(by='count', ascending=False).head(15)
@@ -84,7 +83,7 @@ try:
     if grouped.empty:
         st.info("💡 目前尚無有效新聞標題。")
     else:
-        st.markdown(f"### 🔥 熱門輿情排行榜 (已排除 find.org.tw)")
+        st.markdown("### 🔥 熱門輿情排行榜 (已過濾內部站點)")
         for i, (_, row) in enumerate(grouped.iterrows()):
             st.markdown(f"""
                 <div class="news-card">
@@ -105,4 +104,4 @@ try:
                         seen_links.add(l)
 
 except Exception as e:
-    st.error(f"系統資料同步中...")
+    st.error(f"連線更新中...")

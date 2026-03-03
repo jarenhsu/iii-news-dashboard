@@ -24,7 +24,7 @@ st.markdown("<div style='text-align:center; padding:20px;'><h1 style='color:#263
 SHEET_ID = "1cwFO20QP4EZrl5PYVOjVgevJS2D1VzCUazb9x0fHEoI"
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
-# 💡 媒體名稱辨識系統
+# 💡 媒體名稱辨識與補位系統
 def get_clean_media(raw_m, url):
     mapping = {
         "yahoo": "Yahoo新聞", "udn": "聯合新聞網", "ltn": "自由時報", "chinatimes": "中時新聞網",
@@ -40,14 +40,14 @@ def get_clean_media(raw_m, url):
     return "網路媒體"
 
 try:
-    # 2. 讀取資料
-    df = pd.read_csv(csv_url, on_bad_lines='skip', engine='python').fillna("")
+    # 2. 讀取與「暴力移除」特定站點
+    df_raw = pd.read_csv(csv_url, on_bad_lines='skip', engine='python').fillna("")
+    
+    # 💡 徹底排除：只要任何欄位內容包含 find.org.tw 就直接刪除
+    mask = df_raw.apply(lambda row: row.astype(str).str.contains('find.org.tw', case=False).any(), axis=1)
+    df = df_raw[~mask].copy()
 
-    # 💡 終極過濾：掃描所有欄位，只要內容包含 find.org.tw 就整列刪除
-    mask = df.apply(lambda row: row.astype(str).str.contains('find.org.tw').any(), axis=1)
-    df = df[~mask]
-
-    # 3. 欄位對位 (B:1, C:2, D:3, F:5)
+    # 3. 欄位對位
     df['title'] = df.iloc[:, 1].astype(str).str.strip()
     df['date'] = df.iloc[:, 2].astype(str).str.strip()
     df['link'] = df.iloc[:, 3].astype(str).str.strip()
@@ -68,7 +68,7 @@ try:
 
     st.markdown("---")
 
-    # 6. 重新分組統計
+    # 6. 熱門輿情排行榜
     grouped = df.groupby('title').agg({'link': list, 'clean_media': list, 'date': 'max'}).reset_index()
     grouped['count'] = grouped['link'].apply(len)
     grouped = grouped.sort_values(by='count', ascending=False).head(15)
@@ -76,7 +76,8 @@ try:
     if grouped.empty:
         st.info("💡 資料同步中...")
     else:
-        st.markdown("### 🔥 熱門輿情排行榜 (已徹底排除 find.org.tw)")
+        # 💡 修改標題：移除排除說明文字
+        st.markdown("### 🔥 熱門輿情排行榜")
         for i, (_, row) in enumerate(grouped.iterrows()):
             st.markdown(f"""
                 <div class="news-card">
@@ -96,4 +97,4 @@ try:
                         seen.add(l)
 
 except Exception as e:
-    st.error(f"連線更新中...")
+    st.error(f"系統連線中...")

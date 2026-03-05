@@ -2,15 +2,15 @@ import streamlit as st
 import pandas as pd
 from urllib.parse import urlparse
 from datetime import datetime, timedelta
-import streamlit.components.v1 as components
 
-# 1. 頁面風格：深藍至深橘漸層科技感 UI 設定
+# 1. 頁面風格：深藍至深橘漸層科技感 UI 設定 
 st.set_page_config(page_title="資策會新聞熱度觀測站", layout="centered")
 
-# 自動計算最近七天日期
+# --- 修改處：將觀測天數調整為 10 天 ---
 today = datetime.now()
-seven_days_ago = today - timedelta(days=7)
-date_display = f"{seven_days_ago.strftime('%Y.%m.%d')} - {today.strftime('%Y.%m.%d')}"
+observation_days = 10 
+start_date = today - timedelta(days=observation_days)
+date_display = f"{start_date.strftime('%Y.%m.%d')} - {today.strftime('%Y.%m.%d')}"
 
 st.markdown(f"""
     <style>
@@ -46,11 +46,12 @@ st.markdown(f"""
     @keyframes glitch-anim-1 {{ 0% {{ clip: rect(20px, 9999px, 15px, 0); }} 100% {{ clip: rect(60px, 9999px, 65px, 0); }} }}
     @keyframes glitch-anim-2 {{ 0% {{ clip: rect(50px, 9999px, 55px, 0); }} 100% {{ clip: rect(90px, 9999px, 35px, 0); }} }}
 
-    /* 📅 動態日期膠囊 */
+    /* 📅 10日觀測日期膠囊 */
     .date-pill {{
         text-align: center; margin: 0 auto 30px auto; font-size: 0.85em; color: #00d4ff;
         background: rgba(0, 212, 255, 0.1); border: 1px solid rgba(0, 212, 255, 0.3);
         padding: 5px 25px; border-radius: 50px; width: fit-content; letter-spacing: 2px;
+        box-shadow: 0 0 15px rgba(0, 212, 255, 0.2);
     }}
 
     /* 🚀 雷達旋轉邊框 AI 監測盒 */
@@ -85,7 +86,7 @@ st.markdown(f"""
 
 # 🎬 標題區
 st.markdown("""<div class="header-container"><h1 class="header-title">資策會新聞熱度觀測站</h1></div>""", unsafe_allow_html=True)
-st.markdown(f'<div class="date-pill">DATA RANGE: {date_display}</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="date-pill">10-DAY OBSERVATION: {date_display}</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------
 # 📊 資料流處理
@@ -97,12 +98,14 @@ try:
     df_raw = pd.read_csv(csv_url, on_bad_lines='skip', engine='python').fillna("")
     mask = df_raw.apply(lambda row: row.astype(str).str.contains('find.org.tw', case=False).any(), axis=1)
     df = df_raw[~mask].copy()
+    
+    # 篩選最近 10 天
     df['dt'] = pd.to_datetime(df.iloc[:, 2], errors='coerce')
-    df_7d = df[df['dt'] >= seven_days_ago].copy()
+    df_filtered = df[df['dt'] >= start_date].copy()
     
     # 數據統計與 AI 點評
-    df_7d['clean_m'] = df_7d.apply(lambda x: urlparse(str(x.iloc[3])).netloc.replace("www.","").split('.')[0].upper(), axis=1)
-    grouped = df_7d.groupby(df_7d.iloc[:, 1]).agg({df_7d.columns[3]: list, 'clean_m': list, df_7d.columns[2]: 'max'}).reset_index()
+    df_filtered['clean_m'] = df_filtered.apply(lambda x: urlparse(str(x.iloc[3])).netloc.replace("www.","").split('.')[0].upper(), axis=1)
+    grouped = df_filtered.groupby(df_filtered.iloc[:, 1]).agg({df_filtered.columns[3]: list, 'clean_m': list, df_filtered.columns[2]: 'max'}).reset_index()
     grouped['count'] = grouped.iloc[:, 1].apply(len)
     ranked_df = grouped.sort_values(by='count', ascending=False)
 
@@ -113,29 +116,15 @@ try:
                 <div class="ai-monitor-box">
                     <div style="color:#00d4ff; font-size:0.85em; margin-bottom:10px;">> AI 深度數據分析啟動...</div>
                     <div style="color:#ffffff; line-height:1.6;">
-                        本週核心熱點新聞為：<strong>「{top_1_title}」</strong>。<br>
-                        分析摘要：在觀測期間（{date_display}），該議題展現極高擴散動能。
+                        本期 <strong>10 日核心熱點</strong> 為：<strong>「{top_1_title}」</strong>。<br>
+                        分析摘要：在觀測期間（{date_display}），該議題累積報導量與媒體滲透率最為顯著，展現極高擴散動能。
                     </div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
-    # 📱 修正後的資策會 FB 粉專嵌入區塊
-    st.markdown("<div style='color:#00d4ff; margin-bottom:15px; font-weight:bold; letter-spacing:1px;'>[ 📱 資策會 FB 官方情報 ]</div>", unsafe_allow_html=True)
-    
-    # 指向正確的臉書粉專網址: III.org.tw
-    fb_html = """
-    <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 12px; text-align: center;">
-        <iframe src="https://www.facebook.com/plugins/page.php?href=https%3A%2F%2Fwww.facebook.com%2FIII.org.tw&tabs=timeline&width=500&height=500&small_header=false&adapt_container_width=true&hide_cover=false&show_facepile=true&appId" 
-            width="100%" height="500" style="border:none;overflow:hidden" scrolling="no" frameborder="0" allowfullscreen="true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe>
-    </div>
-    """
-    components.html(fb_html, height=520)
-
-    # ---------------------------------------------------------
-    # 🔥 排行榜渲染
-    # ---------------------------------------------------------
-    st.markdown("<div style='color:#00d4ff; margin-top:30px; margin-bottom:15px; font-weight:bold; letter-spacing:1px;'>[ 📊 即時趨勢數據流 ]</div>", unsafe_allow_html=True)
+    # 排行榜渲染 
+    st.markdown("<div style='color:#00d4ff; margin-bottom:15px; font-weight:bold; letter-spacing:1px;'>[ 📊 10日累積趨勢數據流 ]</div>", unsafe_allow_html=True)
     
     for i, (_, row) in enumerate(ranked_df.head(15).iterrows()):
         st.markdown(f"""
@@ -143,12 +132,12 @@ try:
                 <span class="top-rank">TOP {i+1}</span>
                 <div class="topic-title">{row.iloc[0]}</div>
                 <div style="font-size:0.85em; color:#555; font-weight:bold;">
-                    📅 系統同步時間: {row.iloc[3]}
+                    📅 系統同步日期: {row.iloc[3]}
                 </div>
             </div>
             """, unsafe_allow_html=True)
         with st.expander("查看原始來源數據"):
             for l, m in set(zip(row.iloc[1], row['clean_m'])):
                 st.write(f"**[{m}]** ➔ [點擊閱讀原文]({l})")
-except Exception as e:
-    st.error("📡 資料同步中...")
+except Exception:
+    st.error("📡 資料同步中，請稍候...")
